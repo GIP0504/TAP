@@ -732,30 +732,13 @@
             controlPanel.classList.remove('disabled');
 
             log("자동 조절 중지됨.");
+            log("특성(Characteristic) 가져오는 중...");
+            bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+            updateConnectionState(true);
+        } catch (error) {
+            console.error("Connection failed", error);
+            log("연결 실패: " + error.message);
         }
-
-        async function connectToDevice() {
-            try {
-                log("블루투스 장치 요청 중...");
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    filters: [
-                        { name: 'TAP_Controller' },
-                        { services: [SERVICE_UUID] }
-                    ],
-                    optionalServices: [SERVICE_UUID]
-                });
-                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-                log("GATT 서버에 연결 중...");
-                bleServer = await bleDevice.gatt.connect();
-                log("서비스 가져오는 중...");
-                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
-                log("특성(Characteristic) 가져오는 중...");
-                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-                updateConnectionState(true);
-            } catch (error) {
-                console.error("Connection failed", error);
-                log("연결 실패: " + error.message);
-            }
         }
 
         function onDisconnected(event) {
