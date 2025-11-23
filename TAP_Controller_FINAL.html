@@ -710,6 +710,200 @@
                         stopControl(relayAction);
                     }
                     log(`목표 압력 도달: ${targetPsi} PSI`);
+                    if (timeSincePressureStart < 1.0) {
+                        if (now - lastDisplayUpdate >= 200) {
+                            updatePressureDisplay();
+                            checkSafetyLimits();
+                            lastDisplayUpdate = now;
+                        }
+                        return;
+                    }
+
+                    if (relayAction === 'inflate') {
+                        currentPressure += 0.2 * deltaTime;
+                    } else if (relayAction === 'deflate') {
+                        currentPressure -= 0.2 * deltaTime;
+                    }
+
+                    if (currentPressure < 0) currentPressure = 0;
+                    if (currentPressure > 100) currentPressure = 100;
+
+                    if (now - lastDisplayUpdate >= 200) {
+                        updatePressureDisplay();
+                        checkSafetyLimits();
+                        lastDisplayUpdate = now;
+                    }
+                }, 100);
+        }
+
+        function checkSafetyLimits() {
+            const inflateDisabled = currentPressure >= 50;
+            const deflateDisabled = currentPressure <= 20;
+
+            if (inflateDisabled) {
+                inflateBtn.classList.add('disabled');
+                inflateBtn.disabled = true;
+            } else {
+                inflateBtn.classList.remove('disabled');
+                inflateBtn.disabled = false;
+            }
+
+            if (deflateDisabled) {
+                deflateBtn.classList.add('disabled');
+                deflateBtn.disabled = true;
+            } else {
+                deflateBtn.classList.remove('disabled');
+                deflateBtn.disabled = false;
+            }
+
+            if (currentPressure < 20) {
+                log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨.");
+            } else if (currentPressure < 25) {
+                log("⚠️ 저압 주의: 실제 차량에서는 주행이 위험할 수 있는 수준입니다.");
+            } else if (currentPressure > 50) {
+                log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
+            } else if (currentPressure > 45) {
+                log("⚠️ 고압 주의: 실제 차량에서는 타이어 손상 위험이 있을 수 있습니다.");
+            }
+        }
+
+        function startControl(action) {
+            const btn = (action === 'inflate') ? inflateBtn : deflateBtn;
+            if (btn.disabled) {
+                log("안전 범위를 벗어나 제어가 제한되었습니다.");
+                return;
+            }
+            relayAction = action;
+            const cmdStart = (action === 'inflate') ? 'I' : 'D';
+            setRelayState(true, cmdStart);
+        }
+
+        function stopControl(action) {
+            const cmdStop = (action === 'inflate') ? 'i' : 'd';
+            setRelayState(false, cmdStop);
+            relayAction = null;
+        }
+
+        function setRelayState(state, cmd) {
+            isRelayOn = state;
+            sendCommand(cmd);
+        }
+
+        function setupButtonListeners(btn, action) {
+            const startAction = (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                startControl(action);
+            };
+
+            const stopAction = (e) => {
+                e.preventDefault();
+                if (btn.classList.contains('active')) {
+                    btn.classList.remove('active');
+                    stopControl(action);
+                }
+            };
+
+            btn.addEventListener('mousedown', startAction);
+            btn.addEventListener('mouseup', stopAction);
+            btn.addEventListener('mouseleave', stopAction);
+            btn.addEventListener('touchstart', startAction);
+            btn.addEventListener('touchend', stopAction);
+            btn.addEventListener('touchcancel', stopAction);
+        }
+
+        testModeBtn.addEventListener('click', () => {
+            isSimulation = true;
+            if (!localStorage.getItem('savedPressure')) {
+                currentPressure = 28.0 + Math.random() * 4.0;
+                localStorage.setItem('savedPressure', currentPressure.toString());
+            }
+            updateConnectionState(true);
+            log("테스트 모드 활성화됨.");
+            testModeBtn.style.display = 'none';
+            startPhysicsEngine();
+
+            const targetControl = document.getElementById('target-control');
+            targetControl.classList.remove('hidden');
+        });
+
+        targetMinusBtn.addEventListener('click', () => {
+            const current = parseInt(targetPsiInput.value);
+            if (current > 0) {
+                targetPsiInput.value = current - 1;
+            }
+        });
+
+        targetPlusBtn.addEventListener('click', () => {
+            const current = parseInt(targetPsiInput.value);
+            if (current < 100) {
+                targetPsiInput.value = current + 1;
+            }
+        });
+
+        autoStartBtn.addEventListener('click', () => {
+            if (!isAutoMode) {
+                isAutoMode = true;
+                autoStartBtn.classList.add('active');
+                autoStartBtn.textContent = '⏹️ 자동 조절 중지';
+                log("자동 조절 시작...");
+                startAutoControl();
+            } else {
+                stopAutoControl();
+            }
+        });
+
+        function startAutoControl() {
+            if (autoCheckInterval) clearInterval(autoCheckInterval);
+
+            const targetPsi = parseFloat(targetPsiInput.value);
+
+            if (targetPsi < 20 || targetPsi > 50) {
+                log("⚠️ 안전 범위를 벗어난 목표값입니다. 20~50 PSI 범위 내에서 설정하세요.");
+                isAutoMode = false;
+                autoStartBtn.classList.remove('active');
+                autoStartBtn.textContent = '🤖 자동 조절 시작';
+                return;
+            }
+
+            controlPanel.classList.add('disabled');
+
+            const margin = 0.3;
+            autoCheckInterval = setInterval(() => {
+                const targetPsi = parseFloat(targetPsiInput.value);
+                const P_now = currentPressure;
+
+                if (P_now < targetPsi - margin) {
+                    if (P_now >= 50) {
+                        log("⚠️ 50 PSI 이상이므로 주입이 차단됩니다.");
+                        stopAutoControl();
+                        return;
+                    }
+                    if (relayAction !== 'inflate') {
+                        if (relayAction === 'deflate') {
+                            stopControl('deflate');
+                        }
+                        log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                        startControl('inflate');
+                    }
+                } else if (P_now > targetPsi + margin) {
+                    if (P_now <= 20) {
+                        log("⚠️ 20 PSI 이하이므로 배출이 차단됩니다.");
+                        stopAutoControl();
+                        return;
+                    }
+                    if (relayAction !== 'deflate') {
+                        if (relayAction === 'inflate') {
+                            stopControl('inflate');
+                        }
+                        log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                        startControl('deflate');
+                    }
+                } else {
+                    if (relayAction) {
+                        stopControl(relayAction);
+                    }
+                    log(`목표 압력 도달: ${targetPsi} PSI`);
                     stopAutoControl();
                 }
             }, 150);
@@ -726,31 +920,63 @@
             }
 
             if (relayAction) {
+                stopControl(relayAction);
+            }
 
-                connectBtn.addEventListener('click', connectToDevice);
+            controlPanel.classList.remove('disabled');
+            log("자동 조절 중지됨.");
+        }
 
-                setupButtonListeners(inflateBtn, 'inflate');
-                setupButtonListeners(deflateBtn, 'deflate');
-
-                fullscreenBtn.addEventListener('click', () => {
-                    if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen().catch(err => {
-                            console.log('Fullscreen error:', err);
-                        });
-                    } else {
-                        document.exitFullscreen();
-                    }
+        async function connectToDevice() {
+            try {
+                log("블루투스 장치 요청 중...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
                 });
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                log("GATT 서버에 연결 중...");
+                bleServer = await bleDevice.gatt.connect();
+                log("서비스 가져오는 중...");
+                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
+                log("특성(Characteristic) 가져오는 중...");
+                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+                updateConnectionState(true);
+            } catch (error) {
+                console.error("Connection failed", error);
+                log("연결 실패: " + error.message);
+            }
+        }
 
-                document.addEventListener('fullscreenchange', () => {
-                    if (document.fullscreenElement) {
-                        fullscreenBtn.classList.add('fullscreen-active');
-                    } else {
-                        fullscreenBtn.classList.remove('fullscreen-active');
-                    }
+        function onDisconnected(event) {
+            log("장치 연결이 끊어졌습니다.");
+            updateConnectionState(false);
+        }
+
+        connectBtn.addEventListener('click', connectToDevice);
+
+        setupButtonListeners(inflateBtn, 'inflate');
+        setupButtonListeners(deflateBtn, 'deflate');
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
                 });
+            } else {
+                document.exitFullscreen();
+            }
+        });
 
-                log("연결 대기 중...");
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenBtn.classList.add('fullscreen-active');
+            } else {
+                fullscreenBtn.classList.remove('fullscreen-active');
+            }
+        });
+
+        log("연결 대기 중...");
     </script>
 </body>
 
