@@ -726,50 +726,31 @@
             }
 
             if (relayAction) {
-                stopControl(relayAction);
-            }
 
-            controlPanel.classList.remove('disabled');
+                connectBtn.addEventListener('click', connectToDevice);
 
-            log("자동 조절 중지됨.");
-            log("특성(Characteristic) 가져오는 중...");
-            bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-            updateConnectionState(true);
-        } catch (error) {
-            console.error("Connection failed", error);
-            log("연결 실패: " + error.message);
-        }
-        }
+                setupButtonListeners(inflateBtn, 'inflate');
+                setupButtonListeners(deflateBtn, 'deflate');
 
-        function onDisconnected(event) {
-            log("장치 연결이 끊어졌습니다.");
-            updateConnectionState(false);
-        }
-
-        connectBtn.addEventListener('click', connectToDevice);
-
-        setupButtonListeners(inflateBtn, 'inflate');
-        setupButtonListeners(deflateBtn, 'deflate');
-
-        fullscreenBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log('Fullscreen error:', err);
+                fullscreenBtn.addEventListener('click', () => {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                            console.log('Fullscreen error:', err);
+                        });
+                    } else {
+                        document.exitFullscreen();
+                    }
                 });
-            } else {
-                document.exitFullscreen();
-            }
-        });
 
-        document.addEventListener('fullscreenchange', () => {
-            if (document.fullscreenElement) {
-                fullscreenBtn.classList.add('fullscreen-active');
-            } else {
-                fullscreenBtn.classList.remove('fullscreen-active');
-            }
-        });
+                document.addEventListener('fullscreenchange', () => {
+                    if (document.fullscreenElement) {
+                        fullscreenBtn.classList.add('fullscreen-active');
+                    } else {
+                        fullscreenBtn.classList.remove('fullscreen-active');
+                    }
+                });
 
-        log("연결 대기 중...");
+                log("연결 대기 중...");
     </script>
 </body>
 
