@@ -759,7 +759,13 @@
             updateConnectionState(false);
         }
 
-        connectBtn.addEventListener('click', connectToDevice);
+        connectBtn.addEventListener('click', () => {
+            if (!navigator.bluetooth) {
+                alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
+                return;
+            }
+            connectToDevice();
+        });
 
         setupButtonListeners(inflateBtn, 'inflate');
         setupButtonListeners(deflateBtn, 'deflate');
