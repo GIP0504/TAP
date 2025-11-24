@@ -14,13 +14,14 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icon-512.png">
     <link rel="icon" type="image/png" href="icon-512.png">
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         :root {
-            --bg-color: #fff;
-            --text-primary: #1a1a1a;
-            --text-secondary: #666;
-            --accent-color: #000;
+            --bg-color: #000000;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-color: #ffffff;
             --inflate-color: #4ade80;
             --deflate-color: #f87171;
         }
@@ -35,7 +36,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #fff;
+            background: var(--bg-color);
             color: var(--text-primary);
             min-height: 100vh;
             display: flex;
@@ -75,7 +76,7 @@
             border-radius: 9999px;
             font-size: 0.9rem;
             font-weight: 600;
-            background: #f3f4f6;
+            background: #333;
             color: var(--text-secondary);
             transition: all 0.3s ease;
         }
@@ -115,9 +116,9 @@
         .target-control {
             margin: 1.5rem 0;
             padding: 1.5rem;
-            background: #f8fafc;
+            background: #111;
             border-radius: 1rem;
-            border: 2px solid #e2e8f0;
+            border: 2px solid #333;
         }
 
         .target-control.hidden {
@@ -143,8 +144,8 @@
         .target-btn {
             width: 40px;
             height: 40px;
-            border: 2px solid #e2e8f0;
-            background: #fff;
+            border: 2px solid #333;
+            background: #222;
             border-radius: 0.5rem;
             font-size: 1.5rem;
             font-weight: 700;
@@ -155,14 +156,14 @@
 
         .target-btn:active {
             transform: scale(0.95);
-            background: #f1f5f9;
+            background: #444;
         }
 
         .target-input {
             width: 80px;
             height: 40px;
-            border: 2px solid #e2e8f0;
-            background: #fff;
+            border: 2px solid #333;
+            background: #222;
             border-radius: 0.5rem;
             font-size: 1.2rem;
             font-weight: 700;
@@ -193,6 +194,10 @@
             cursor: pointer;
             transition: all 0.2s;
             box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .btn-auto:active {
@@ -210,7 +215,7 @@
             border: none;
             border-radius: 1rem;
             background: var(--accent-color);
-            color: #fff;
+            color: #000;
             font-weight: 700;
             font-size: 1.1rem;
             cursor: pointer;
@@ -219,7 +224,7 @@
             justify-content: center;
             align-items: center;
             gap: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.1);
         }
 
         .btn-primary:active {
@@ -252,7 +257,7 @@
             min-height: 120px;
             border: none;
             border-radius: 1.5rem;
-            background: #f8fafc;
+            background: #111;
             color: var(--text-primary);
             display: flex;
             flex-direction: column;
@@ -260,7 +265,7 @@
             align-items: center;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 2px solid #e2e8f0;
+            border: 2px solid #333;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
 
@@ -279,7 +284,7 @@
 
         .btn-control.inflate:active,
         .btn-control.inflate.active {
-            background: #f0fdf4;
+            background: #064e3b;
             border-color: var(--inflate-color);
             transform: scale(0.98);
         }
@@ -291,7 +296,7 @@
 
         .btn-control.deflate:active,
         .btn-control.deflate.active {
-            background: #fef2f2;
+            background: #7f1d1d;
             border-color: var(--deflate-color);
             transform: scale(0.98);
         }
@@ -319,17 +324,21 @@
             padding: 1rem;
             border: none;
             border-radius: 1rem;
-            background: #f1f5f9;
+            background: #222;
             color: var(--text-secondary);
             font-weight: 600;
             font-size: 0.9rem;
             cursor: pointer;
             margin-top: 1rem;
             transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .btn-secondary:active {
-            background: #e2e8f0;
+            background: #333;
             color: var(--text-primary);
         }
 
@@ -341,7 +350,7 @@
             height: 50px;
             border: none;
             border-radius: 0.75rem;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(255, 255, 255, 0.1);
             color: #fff;
             font-size: 1.5rem;
             cursor: pointer;
@@ -353,13 +362,13 @@
         }
 
         .fullscreen-btn.fullscreen-active {
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.05);
             color: rgba(255, 255, 255, 0.3);
         }
 
         .fullscreen-btn:active {
             transform: scale(0.95);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .car-container {
@@ -407,6 +416,18 @@
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
 
+        .tire-timestamp {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 0.2rem;
+            display: none;
+            /* Hidden by default */
+        }
+
+        .tire-btn.fixed .tire-timestamp {
+            display: block;
+        }
+
         /* Positioning Tire Buttons (Adjust based on image) */
         .tire-btn.fl {
             top: 20%;
@@ -437,7 +458,7 @@
         }
 
         .footer-btn {
-            background: #f8fafc;
+            background: #111;
             border: none;
             border-radius: 1rem;
             padding: 1rem 0.5rem;
@@ -453,12 +474,13 @@
         }
 
         .footer-btn:active {
-            background: #e2e8f0;
+            background: #222;
             transform: scale(0.95);
         }
 
         .footer-btn .icon {
-            font-size: 1.5rem;
+            width: 24px;
+            height: 24px;
             margin-bottom: 0.2rem;
         }
 
@@ -477,6 +499,9 @@
             color: var(--text-secondary);
             cursor: pointer;
             padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
         }
 
         .hidden {
@@ -494,7 +519,9 @@
         <main id="main-content">
             <!-- Connection View -->
             <div id="connection-view">
-                <button id="connect-btn" class="btn-primary"><span class="icon">🔗</span> 장치 연결</button>
+                <button id="connect-btn" class="btn-primary"><i data-lucide="link"></i> 장치 연결</button>
+                <button id="test-mode-btn" class="btn-secondary"><i data-lucide="flask-conical"></i> 테스트 모드
+                    (시뮬레이션)</button>
             </div>
 
             <!-- Dashboard View -->
@@ -504,17 +531,20 @@
                         onerror="this.src='https://placehold.co/300x600/1a1a1a/FFF?text=Car+Image'">
 
                     <!-- Tire Buttons -->
-                    <button class="tire-btn fl" data-tire="FL">
+                    <button class="tire-btn fl fixed" data-tire="FL">
                         <span class="tire-psi">--</span>
                         <span class="tire-label">psi</span>
+                        <span class="tire-timestamp">1분 전</span>
                     </button>
-                    <button class="tire-btn fr" data-tire="FR">
+                    <button class="tire-btn fr fixed" data-tire="FR">
                         <span class="tire-psi">--</span>
                         <span class="tire-label">psi</span>
+                        <span class="tire-timestamp">1분 전</span>
                     </button>
-                    <button class="tire-btn rl" data-tire="RL">
+                    <button class="tire-btn rl fixed" data-tire="RL">
                         <span class="tire-psi">--</span>
                         <span class="tire-label">psi</span>
+                        <span class="tire-timestamp">1분 전</span>
                     </button>
                     <button class="tire-btn rr" data-tire="RR">
                         <span class="tire-psi">--</span>
@@ -524,19 +554,19 @@
 
                 <div class="dashboard-footer">
                     <button class="footer-btn">
-                        <span class="icon">🔦</span>
+                        <i data-lucide="flashlight" class="icon"></i>
                         <span>플래시</span>
                     </button>
                     <button class="footer-btn">
-                        <span class="icon">📢</span>
+                        <i data-lucide="megaphone" class="icon"></i>
                         <span>경적</span>
                     </button>
                     <button class="footer-btn">
-                        <span class="icon">💨</span>
+                        <i data-lucide="wind" class="icon"></i>
                         <span>환기</span>
                     </button>
                     <button class="footer-btn">
-                        <span class="icon">🌡️</span>
+                        <i data-lucide="thermometer" class="icon"></i>
                         <span>온도</span>
                     </button>
                 </div>
@@ -545,7 +575,7 @@
             <!-- Control Panel View -->
             <div id="control-view" class="hidden">
                 <div class="control-header">
-                    <button id="back-to-dashboard" class="back-btn">‹ 뒤로</button>
+                    <button id="back-to-dashboard" class="back-btn"><i data-lucide="chevron-left"></i> 뒤로</button>
                     <h2 id="current-tire-title">앞왼쪽 타이어</h2>
                 </div>
 
@@ -560,7 +590,7 @@
                         <button id="target-plus" class="target-btn">+</button>
                         <span class="target-unit">PSI</span>
                     </div>
-                    <button id="auto-start-btn" class="btn-auto">🤖 자동 조절 시작</button>
+                    <button id="auto-start-btn" class="btn-auto"><i data-lucide="bot"></i> 자동 조절 시작</button>
                 </div>
                 <div class="controls" id="control-panel">
                     <div class="control-group">
@@ -579,11 +609,10 @@
                 <div id="log-area" class="log-area">
                     <p>준비 완료</p>
                 </div>
-                <button id="test-mode-btn" class="btn-secondary">🧪 테스트 모드 (시뮬레이션)</button>
             </div>
         </main>
     </div>
-    <button id="fullscreen-btn" class="fullscreen-btn" title="전체화면">⛶</button>
+    <button id="fullscreen-btn" class="fullscreen-btn" title="전체화면"><i data-lucide="maximize"></i></button>
 
     <script>
         const connectBtn = document.getElementById('connect-btn');
@@ -666,7 +695,7 @@
 
         // State for 4 tires
         let tirePressures = JSON.parse(localStorage.getItem('tirePressures')) || {
-            FL: 30.0, FR: 30.0, RL: 30.0, RR: 30.0
+            FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0
         };
         let currentTireId = null; // 'FL', 'FR', 'RL', 'RR'
 
@@ -679,6 +708,11 @@
             document.querySelector('.tire-btn.fr .tire-psi').textContent = tirePressures.FR.toFixed(1);
             document.querySelector('.tire-btn.rl .tire-psi').textContent = tirePressures.RL.toFixed(1);
             document.querySelector('.tire-btn.rr .tire-psi').textContent = tirePressures.RR.toFixed(1);
+
+            // Re-render icons if needed (though usually only needed on new content)
+            if (window.lucide) {
+                lucide.createIcons();
+            }
         }
 
         function showDashboard() {
@@ -872,9 +906,9 @@
             isSimulation = true;
             if (!localStorage.getItem('tirePressures')) {
                 tirePressures = {
-                    FL: 28.0 + Math.random() * 4.0,
-                    FR: 28.0 + Math.random() * 4.0,
-                    RL: 28.0 + Math.random() * 4.0,
+                    FL: 36.0,
+                    FR: 36.0,
+                    RL: 36.0,
                     RR: 28.0 + Math.random() * 4.0
                 };
                 saveTirePressures();
@@ -907,6 +941,12 @@
                 isAutoMode = true;
                 autoStartBtn.classList.add('active');
                 autoStartBtn.textContent = '⏹️ 자동 조절 중지';
+                // Update icon if needed, but text content replacement wipes it. 
+                // Let's just keep text for now or re-add icon.
+                // Simpler to just toggle text for this specific button or use innerHTML
+                autoStartBtn.innerHTML = '<i data-lucide="square"></i> 자동 조절 중지';
+                lucide.createIcons();
+
                 log("자동 조절 시작...");
                 startAutoControl();
             } else {
@@ -923,7 +963,8 @@
                 log("⚠️ 안전 범위를 벗어난 목표값입니다. 20~50 PSI 범위 내에서 설정하세요.");
                 isAutoMode = false;
                 autoStartBtn.classList.remove('active');
-                autoStartBtn.textContent = '🤖 자동 조절 시작';
+                autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
+                lucide.createIcons();
                 return;
             }
 
@@ -973,7 +1014,9 @@
         function stopAutoControl() {
             isAutoMode = false;
             autoStartBtn.classList.remove('active');
-            autoStartBtn.textContent = '🤖 자동 조절 시작';
+            autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
+            lucide.createIcons();
+
             if (autoCheckInterval) {
                 clearInterval(autoCheckInterval);
                 autoCheckInterval = null;
