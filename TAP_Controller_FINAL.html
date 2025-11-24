@@ -480,6 +480,190 @@
         }
 
         .hidden {
+            const pressureDisplay=document.getElementById('pressure-display');
+            const pressureValue=document.getElementById('pressure-value');
+            const testModeBtn=document.getElementById('test-mode-btn');
+            const targetPsiInput=document.getElementById('target-psi');
+            const targetMinusBtn=document.getElementById('target-minus');
+            const targetPlusBtn=document.getElementById('target-plus');
+            const autoStartBtn=document.getElementById('auto-start-btn');
+            const fullscreenBtn=document.getElementById('fullscreen-btn');
+
+            let bleDevice=null;
+            let bleServer=null;
+            let bleService=null;
+            let bleCharacteristic=null;
+
+            let currentPressure=parseFloat(localStorage.getItem('savedPressure')) || 30.0;
+            let tankPressure=100.0;
+            let isRelayOn=false;
+            let relayAction=null;
+            let physicsInterval=null;
+            let lastInflateTime=0;
+            let isSimulation=false;
+            let isAutoMode=false;
+            let autoCheckInterval=null;
+
+            function log(message) {
+                console.log(message);
+                logArea.textContent=message;
+            }
+
+            function updateConnectionState(isConnected) {
+                if (isConnected) {
+                    connectionStatus.textContent="연결됨";
+                    connectionStatus.classList.remove('disconnected');
+                    connectionStatus.classList.add('connected');
+                    controlPanel.classList.remove('disabled');
+                    connectBtn.style.display='none';
+                    pressureDisplay.classList.remove('hidden');
+                    updatePressureDisplay();
+                    log("장치가 연결되었습니다. 준비 완료.");
+                }
+
+                else {
+                    connectionStatus.textContent="연결 끊김";
+                    connectionStatus.classList.remove('connected');
+                    connectionStatus.classList.add('disconnected');
+                    controlPanel.classList.add('disabled');
+                    connectBtn.style.display='flex';
+                    pressureDisplay.classList.add('hidden');
+                    log("장치 연결이 끊어졌습니다.");
+                    bleCharacteristic=null;
+                }
+            }
+
+            justify-content: center;
+        }
+
+        .fullscreen-btn.fullscreen-active {
+            background: rgba(0, 0, 0, 0.1);
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .fullscreen-btn:active {
+            transform: scale(0.95);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .car-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .car-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            opacity: 0.9;
+        }
+
+        .tire-btn {
+            position: absolute;
+            background: none;
+            border: none;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .tire-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tire-psi {
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .tire-label {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Positioning Tire Buttons (Adjust based on image) */
+        .tire-btn.fl {
+            top: 20%;
+            left: 10%;
+        }
+
+        .tire-btn.fr {
+            top: 20%;
+            right: 10%;
+        }
+
+        .tire-btn.rl {
+            bottom: 25%;
+            left: 10%;
+        }
+
+        .tire-btn.rr {
+            bottom: 25%;
+            right: 10%;
+        }
+
+        .dashboard-footer {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-top: auto;
+            width: 100%;
+        }
+
+        .footer-btn {
+            background: #f8fafc;
+            border: none;
+            border-radius: 1rem;
+            padding: 1rem 0.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .footer-btn:active {
+            background: #e2e8f0;
+            transform: scale(0.95);
+        }
+
+        .footer-btn .icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .control-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .hidden {
             display: none !important;
         }
     </style>
@@ -530,8 +714,9 @@
     controlPanel.classList.remove('disabled');
     connectBtn.style.display = 'none';
     pressureDisplay.classList.remove('hidden');
-    updatePressureDisplay();
+    // updatePressureDisplay(); // This will be called by showControlPanel or showDashboard
     log("장치가 연결되었습니다. 준비 완료.");
+    showDashboard(); // Show dashboard on successful connection
     } else {
     connectionStatus.textContent = "연결 끊김";
     connectionStatus.classList.remove('connected');
@@ -544,546 +729,349 @@
     }
     }
 
-    justify-content: center;
+    function updatePressureDisplay() {
+    pressureValue.textContent = currentPressure.toFixed(1);
+    // Update the specific tire state
+    if (currentTireId) {
+    tirePressures[currentTireId] = currentPressure;
+    saveTirePressures();
+    }
     }
 
-    .fullscreen-btn.fullscreen-active {
-    background: rgba(0, 0, 0, 0.1);
-    color: rgba(255, 255, 255, 0.3);
+    const dashboardView = document.getElementById('dashboard-view');
+    const controlView = document.getElementById('control-view');
+    const connectionView = document.getElementById('connection-view');
+    const backBtn = document.getElementById('back-to-dashboard');
+    const currentTireTitle = document.getElementById('current-tire-title');
+    const tireBtns = document.querySelectorAll('.tire-btn');
+
+    // State for 4 tires
+    let tirePressures = JSON.parse(localStorage.getItem('tirePressures')) || {
+    FL: 30.0, FR: 30.0, RL: 30.0, RR: 30.0
+    };
+    let currentTireId = null; // 'FL', 'FR', 'RL', 'RR'
+
+    function saveTirePressures() {
+    localStorage.setItem('tirePressures', JSON.stringify(tirePressures));
     }
 
-    .fullscreen-btn:active {
-    transform: scale(0.95);
-    background: rgba(0, 0, 0, 0.9);
+    function updateDashboardUI() {
+    document.querySelector('.tire-btn.fl .tire-psi').textContent = tirePressures.FL.toFixed(1);
+    document.querySelector('.tire-btn.fr .tire-psi').textContent = tirePressures.FR.toFixed(1);
+    document.querySelector('.tire-btn.rl .tire-psi').textContent = tirePressures.RL.toFixed(1);
+    document.querySelector('.tire-btn.rr .tire-psi').textContent = tirePressures.RR.toFixed(1);
     }
 
-    .car-container {
-    position: relative;
-    width: 100%;
-    height: 500px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 2rem;
+    function showDashboard() {
+    connectionView.classList.add('hidden');
+    controlView.classList.add('hidden');
+    dashboardView.classList.remove('hidden');
+    updateDashboardUI();
+
+    // Stop any active control when returning to dashboard
+    if (relayAction) stopControl(relayAction);
+    if (isAutoMode) stopAutoControl();
     }
 
-    .car-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    opacity: 0.9;
+    function showControlPanel(tireId) {
+    currentTireId = tireId;
+    currentPressure = tirePressures[tireId];
+
+    let tireName = "";
+    switch(tireId) {
+    case 'FL': tireName = "앞왼쪽 타이어"; break;
+    case 'FR': tireName = "앞오른쪽 타이어"; break;
+    case 'RL': tireName = "뒤왼쪽 타이어"; break;
+    case 'RR': tireName = "뒤오른쪽 타이어"; break;
+    }
+    currentTireTitle.textContent = tireName;
+
+    dashboardView.classList.add('hidden');
+    controlView.classList.remove('hidden');
+    updatePressureDisplay();
     }
 
-    .tire-btn {
-    position: absolute;
-    background: none;
-    border: none;
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    transition: transform 0.2s;
+    // Tire Button Listeners
+    tireBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+    const tireId = btn.dataset.tire;
+    showControlPanel(tireId);
+    });
+    });
+
+    // Back Button Listener
+    backBtn.addEventListener('click', () => {
+    showDashboard();
+    });
+
+    async function sendCommand(cmd) {
+    if (isSimulation) return;
+    if (!bleCharacteristic) {
+    log("연결되지 않음.");
+    return;
+    }
+    try {
+    const encoder = new TextEncoder();
+    await bleCharacteristic.writeValue(encoder.encode(cmd));
+    console.log("Sent command:", cmd);
+    } catch (error) {
+    console.error("Write failed", error);
+    log("명령 전송 오류.");
+    }
     }
 
-    .tire-btn:active {
-    transform: scale(0.95);
+    function startPhysicsEngine() {
+    if (physicsInterval) clearInterval(physicsInterval);
+
+    let lastTickTime = Date.now();
+    let lastDisplayUpdate = Date.now();
+    let pressureChangeStartTime = null;
+
+    physicsInterval = setInterval(() => {
+    const now = Date.now();
+    const deltaTime = (now - lastTickTime) / 1000;
+    lastTickTime = now;
+
+    if (!isRelayOn) {
+    pressureChangeStartTime = null;
+    if (now - lastDisplayUpdate >= 200) {
+    updatePressureDisplay();
+    lastDisplayUpdate = now;
+    }
+    return;
     }
 
-    .tire-psi {
-    font-size: 2rem;
-    font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    if (pressureChangeStartTime === null) {
+    pressureChangeStartTime = Date.now();
     }
 
-    .tire-label {
-    font-size: 0.8rem;
-    opacity: 0.8;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    }
+    const timeSincePressureStart = (now - pressureChangeStartTime) / 1000;
 
-    /* Positioning Tire Buttons (Adjust based on image) */
-    .tire-btn.fl {
-    top: 20%;
-    left: 10%;
-    }
-
-    .tire-btn.fr {
-    top: 20%;
-    right: 10%;
-    }
-
-    .tire-btn.rl {
-    bottom: 25%;
-    left: 10%;
-    }
-
-    .tire-btn.rr {
-    bottom: 25%;
-    right: 10%;
-    }
-
-    .dashboard-footer {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
-    margin-top: auto;
-    width: 100%;
-    }
-
-    .footer-btn {
-    background: #f8fafc;
-    border: none;
-    border-radius: 1rem;
-    padding: 1rem 0.5rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    }
-
-    .footer-btn:active {
-    background: #e2e8f0;
-    transform: scale(0.95);
-    }
-
-    .footer-btn .icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.2rem;
-    }
-
-    .control-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 1rem;
-    }
-
-    .back-btn {
-    background: none;
-    border: none;
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 0.5rem;
-    }
-
-    .hidden {
-    display: none !important;
-    }
-    </style>
-    </head>
-
-    <body>
-
-        const connectBtn = document.getElementById('connect-btn');
-        const connectionStatus = document.getElementById('connection-status');
-        const controlPanel = document.getElementById('control-panel');
-        const inflateBtn = document.getElementById('inflate-btn');
-        const deflateBtn = document.getElementById('deflate-btn');
-        const logArea = document.getElementById('log-area');
-        const pressureDisplay = document.getElementById('pressure-display');
-        const pressureValue = document.getElementById('pressure-value');
-        const testModeBtn = document.getElementById('test-mode-btn');
-        const targetPsiInput = document.getElementById('target-psi');
-        const targetMinusBtn = document.getElementById('target-minus');
-        const targetPlusBtn = document.getElementById('target-plus');
-        const autoStartBtn = document.getElementById('auto-start-btn');
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-
-        let bleDevice = null;
-        let bleServer = null;
-        let bleService = null;
-        let bleCharacteristic = null;
-
-        let currentPressure = parseFloat(localStorage.getItem('savedPressure')) || 30.0;
-        let tankPressure = 100.0;
-        let isRelayOn = false;
-        let relayAction = null;
-        let physicsInterval = null;
-        let lastInflateTime = 0;
-        let isSimulation = false;
-        let isAutoMode = false;
-        let autoCheckInterval = null;
-
-        function log(message) {
-        console.log(message);
-        logArea.textContent = message;
-        }
-
-        function updateConnectionState(isConnected) {
-        if (isConnected) {
-        connectionStatus.textContent = "연결됨";
-        connectionStatus.classList.remove('disconnected');
-        connectionStatus.classList.add('connected');
-        controlPanel.classList.remove('disabled');
-        connectBtn.style.display = 'none';
-        pressureDisplay.classList.remove('hidden');
-        // updatePressureDisplay(); // This will be called by showControlPanel or showDashboard
-        log("장치가 연결되었습니다. 준비 완료.");
-        showDashboard(); // Show dashboard on successful connection
-        } else {
-        connectionStatus.textContent = "연결 끊김";
-        connectionStatus.classList.remove('connected');
-        connectionStatus.classList.add('disconnected');
-        controlPanel.classList.add('disabled');
-        connectBtn.style.display = 'flex';
-        pressureDisplay.classList.add('hidden');
-        log("장치 연결이 끊어졌습니다.");
-        bleCharacteristic = null;
-        }
-        }
-
-        function updatePressureDisplay() {
-        pressureValue.textContent = currentPressure.toFixed(1);
-        // Update the specific tire state
-        if (currentTireId) {
-        tirePressures[currentTireId] = currentPressure;
-        saveTirePressures();
-        }
-        }
-
-        const dashboardView = document.getElementById('dashboard-view');
-        const controlView = document.getElementById('control-view');
-        const connectionView = document.getElementById('connection-view');
-        const backBtn = document.getElementById('back-to-dashboard');
-        const currentTireTitle = document.getElementById('current-tire-title');
-        const tireBtns = document.querySelectorAll('.tire-btn');
-
-        // State for 4 tires
-        let tirePressures = JSON.parse(localStorage.getItem('tirePressures')) || {
-        FL: 30.0, FR: 30.0, RL: 30.0, RR: 30.0
-        };
-        let currentTireId = null; // 'FL', 'FR', 'RL', 'RR'
-
-        function saveTirePressures() {
-        localStorage.setItem('tirePressures', JSON.stringify(tirePressures));
-        }
-
-        function updateDashboardUI() {
-        document.querySelector('.tire-btn.fl .tire-psi').textContent = tirePressures.FL.toFixed(1);
-        document.querySelector('.tire-btn.fr .tire-psi').textContent = tirePressures.FR.toFixed(1);
-        document.querySelector('.tire-btn.rl .tire-psi').textContent = tirePressures.RL.toFixed(1);
-        document.querySelector('.tire-btn.rr .tire-psi').textContent = tirePressures.RR.toFixed(1);
-        }
-
-        function showDashboard() {
-        connectionView.classList.add('hidden');
-        controlView.classList.add('hidden');
-        dashboardView.classList.remove('hidden');
-        updateDashboardUI();
-
-        // Stop any active control when returning to dashboard
-        if (relayAction) stopControl(relayAction);
-        if (isAutoMode) stopAutoControl();
-        }
-
-        function showControlPanel(tireId) {
-        currentTireId = tireId;
-        currentPressure = tirePressures[tireId];
-
-        let tireName = "";
-        switch(tireId) {
-        case 'FL': tireName = "앞왼쪽 타이어"; break;
-        case 'FR': tireName = "앞오른쪽 타이어"; break;
-        case 'RL': tireName = "뒤왼쪽 타이어"; break;
-        case 'RR': tireName = "뒤오른쪽 타이어"; break;
-        }
-        currentTireTitle.textContent = tireName;
-
-        dashboardView.classList.add('hidden');
-        controlView.classList.remove('hidden');
+    if (timeSincePressureStart < 1.0) { if (now - lastDisplayUpdate>= 200) {
         updatePressureDisplay();
-        }
-
-        // Tire Button Listeners
-        tireBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-        const tireId = btn.dataset.tire;
-        showControlPanel(tireId);
-        });
-        });
-
-        // Back Button Listener
-        backBtn.addEventListener('click', () => {
-        showDashboard();
-        });
-
-        async function sendCommand(cmd) {
-        if (isSimulation) return;
-        if (!bleCharacteristic) {
-        log("연결되지 않음.");
-        return;
-        }
-        try {
-        const encoder = new TextEncoder();
-        await bleCharacteristic.writeValue(encoder.encode(cmd));
-        console.log("Sent command:", cmd);
-        } catch (error) {
-        console.error("Write failed", error);
-        log("명령 전송 오류.");
-        }
-        }
-
-        function startPhysicsEngine() {
-        if (physicsInterval) clearInterval(physicsInterval);
-
-        let lastTickTime = Date.now();
-        let lastDisplayUpdate = Date.now();
-        let pressureChangeStartTime = null;
-
-        physicsInterval = setInterval(() => {
-        const now = Date.now();
-        const deltaTime = (now - lastTickTime) / 1000;
-        lastTickTime = now;
-
-        if (!isRelayOn) {
-        pressureChangeStartTime = null;
-        if (now - lastDisplayUpdate >= 200) {
-        updatePressureDisplay();
+        checkSafetyLimits();
         lastDisplayUpdate = now;
         }
         return;
         }
 
-        if (pressureChangeStartTime === null) {
-        pressureChangeStartTime = Date.now();
+        if (relayAction === 'inflate') {
+        currentPressure += 0.2 * deltaTime;
+        } else if (relayAction === 'deflate') {
+        currentPressure -= 0.2 * deltaTime;
         }
 
-        const timeSincePressureStart = (now - pressureChangeStartTime) / 1000;
+        if (currentPressure < 0) currentPressure=0; if (currentPressure> 100) currentPressure = 100;
 
-        if (timeSincePressureStart < 1.0) { if (now - lastDisplayUpdate>= 200) {
+            if (now - lastDisplayUpdate >= 200) {
             updatePressureDisplay();
             checkSafetyLimits();
             lastDisplayUpdate = now;
             }
-            return;
+            }, 100);
             }
 
-            if (relayAction === 'inflate') {
-            currentPressure += 0.2 * deltaTime;
-            } else if (relayAction === 'deflate') {
-            currentPressure -= 0.2 * deltaTime;
-            }
-
-            if (currentPressure < 0) currentPressure=0; if (currentPressure> 100) currentPressure = 100;
-
-                if (now - lastDisplayUpdate >= 200) {
-                updatePressureDisplay();
-                checkSafetyLimits();
-                lastDisplayUpdate = now;
+            function checkSafetyLimits() {
+            const inflateDisabled = currentPressure >= 50;
+            const deflateDisabled = currentPressure <= 20; if (inflateDisabled) { inflateBtn.classList.add('disabled');
+                inflateBtn.disabled=true; } else { inflateBtn.classList.remove('disabled'); inflateBtn.disabled=false; }
+                if (deflateDisabled) { deflateBtn.classList.add('disabled'); deflateBtn.disabled=true; } else {
+                deflateBtn.classList.remove('disabled'); deflateBtn.disabled=false; } if (currentPressure < 20) {
+                log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨."); } else if (currentPressure < 25) { log("⚠️ 저압 주의: 실제 차량에서는
+                주행이 위험할 수 있는 수준입니다."); } else if (currentPressure> 50) {
+                log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
+                } else if (currentPressure > 45) {
+                log("⚠️ 고압 주의: 실제 차량에서는 타이어 손상 위험이 있을 수 있습니다.");
                 }
-                }, 100);
                 }
 
-                function checkSafetyLimits() {
-                const inflateDisabled = currentPressure >= 50;
-                const deflateDisabled = currentPressure <= 20; if (inflateDisabled) {
-                    inflateBtn.classList.add('disabled'); inflateBtn.disabled=true; } else {
-                    inflateBtn.classList.remove('disabled'); inflateBtn.disabled=false; } if (deflateDisabled) {
-                    deflateBtn.classList.add('disabled'); deflateBtn.disabled=true; } else {
-                    deflateBtn.classList.remove('disabled'); deflateBtn.disabled=false; } if (currentPressure < 20) {
-                    log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨."); } else if (currentPressure < 25) { log("⚠️ 저압 주의: 실제
-                    차량에서는 주행이 위험할 수 있는 수준입니다."); } else if (currentPressure> 50) {
-                    log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
-                    } else if (currentPressure > 45) {
-                    log("⚠️ 고압 주의: 실제 차량에서는 타이어 손상 위험이 있을 수 있습니다.");
-                    }
-                    }
+                function startControl(action) {
+                const btn = (action === 'inflate') ? inflateBtn : deflateBtn;
+                if (btn.disabled) {
+                log("안전 범위를 벗어나 제어가 제한되었습니다.");
+                return;
+                }
+                relayAction = action;
+                const cmdStart = (action === 'inflate') ? 'I' : 'D';
+                setRelayState(true, cmdStart);
+                }
 
-                    function startControl(action) {
-                    const btn = (action === 'inflate') ? inflateBtn : deflateBtn;
-                    if (btn.disabled) {
-                    log("안전 범위를 벗어나 제어가 제한되었습니다.");
-                    return;
-                    }
-                    relayAction = action;
-                    const cmdStart = (action === 'inflate') ? 'I' : 'D';
-                    setRelayState(true, cmdStart);
-                    }
+                function stopControl(action) {
+                const cmdStop = (action === 'inflate') ? 'i' : 'd';
+                setRelayState(false, cmdStop);
+                relayAction = null;
+                }
 
-                    function stopControl(action) {
-                    const cmdStop = (action === 'inflate') ? 'i' : 'd';
-                    setRelayState(false, cmdStop);
-                    relayAction = null;
+                function setRelayState(state, cmd) {
+                isRelayOn = state;
+                sendCommand(cmd);
+                }
+
+                function setupButtonListeners(btn, action) {
+                const startAction = (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                startControl(action);
+                };
+
+                const stopAction = (e) => {
+                e.preventDefault();
+                if (btn.classList.contains('active')) {
+                btn.classList.remove('active');
+                stopControl(action);
+                }
+                };
+
+                btn.addEventListener('mousedown', startAction);
+                btn.addEventListener('mouseup', stopAction);
+                btn.addEventListener('mouseleave', stopAction);
+                btn.addEventListener('touchstart', startAction);
+                btn.addEventListener('touchend', stopAction);
+                btn.addEventListener('touchcancel', stopAction);
+                }
+
+                testModeBtn.addEventListener('click', () => {
+                isSimulation = true;
+                if (!localStorage.getItem('tirePressures')) {
+                tirePressures = {
+                FL: 28.0 + Math.random() * 4.0,
+                FR: 28.0 + Math.random() * 4.0,
+                RL: 28.0 + Math.random() * 4.0,
+                RR: 28.0 + Math.random() * 4.0
+                };
+                saveTirePressures();
+                }
+                updateConnectionState(true);
+                log("테스트 모드 활성화됨.");
+                startPhysicsEngine();
+                showDashboard(); // Show dashboard on test mode activation
+
+                const targetControl = document.getElementById('target-control');
+                targetControl.classList.remove('hidden');
+                });
+
+                targetMinusBtn.addEventListener('click', () => {
+                const current = parseInt(targetPsiInput.value);
+                if (current > 0) {
+                targetPsiInput.value = current - 1;
+                }
+                });
+
+                targetPlusBtn.addEventListener('click', () => {
+                const current = parseInt(targetPsiInput.value);
+                if (current < 100) { targetPsiInput.value=current + 1; } }); autoStartBtn.addEventListener('click', ()=>
+                    {
+                    if (!isAutoMode) {
+                    isAutoMode = true;
+                    autoStartBtn.classList.add('active');
+                    autoStartBtn.textContent = '⏹️ 자동 조절 중지';
+                    log("자동 조절 시작...");
+                    startAutoControl();
+                    } else {
+                    stopAutoControl();
                     }
-
-                    function setRelayState(state, cmd) {
-                    isRelayOn = state;
-                    sendCommand(cmd);
-                    }
-
-                    function setupButtonListeners(btn, action) {
-                    const startAction = (e) => {
-                    e.preventDefault();
-                    btn.classList.add('active');
-                    startControl(action);
-                    };
-
-                    const stopAction = (e) => {
-                    e.preventDefault();
-                    if (btn.classList.contains('active')) {
-                    btn.classList.remove('active');
-                    stopControl(action);
-                    }
-                    };
-
-                    btn.addEventListener('mousedown', startAction);
-                    btn.addEventListener('mouseup', stopAction);
-                    btn.addEventListener('mouseleave', stopAction);
-                    btn.addEventListener('touchstart', startAction);
-                    btn.addEventListener('touchend', stopAction);
-                    btn.addEventListener('touchcancel', stopAction);
-                    }
-
-                    testModeBtn.addEventListener('click', () => {
-                    isSimulation = true;
-                    if (!localStorage.getItem('tirePressures')) {
-                    tirePressures = {
-                    FL: 28.0 + Math.random() * 4.0,
-                    FR: 28.0 + Math.random() * 4.0,
-                    RL: 28.0 + Math.random() * 4.0,
-                    RR: 28.0 + Math.random() * 4.0
-                    };
-                    saveTirePressures();
-                    }
-                    updateConnectionState(true);
-                    log("테스트 모드 활성화됨.");
-                    startPhysicsEngine();
-                    showDashboard(); // Show dashboard on test mode activation
-
-                    const targetControl = document.getElementById('target-control');
-                    targetControl.classList.remove('hidden');
                     });
 
-                    targetMinusBtn.addEventListener('click', () => {
-                    const current = parseInt(targetPsiInput.value);
-                    if (current > 0) {
-                    targetPsiInput.value = current - 1;
-                    }
-                    });
+                    function startAutoControl() {
+                    if (autoCheckInterval) clearInterval(autoCheckInterval);
 
-                    targetPlusBtn.addEventListener('click', () => {
-                    const current = parseInt(targetPsiInput.value);
-                    if (current < 100) { targetPsiInput.value=current + 1; } }); autoStartBtn.addEventListener('click',
-                        ()=> {
-                        if (!isAutoMode) {
-                        isAutoMode = true;
-                        autoStartBtn.classList.add('active');
-                        autoStartBtn.textContent = '⏹️ 자동 조절 중지';
-                        log("자동 조절 시작...");
-                        startAutoControl();
-                        } else {
-                        stopAutoControl();
+                    const targetPsi = parseFloat(targetPsiInput.value);
+
+                    if (targetPsi < 20 || targetPsi> 50) {
+                        log("⚠️ 안전 범위를 벗어난 목표값입니다. 20~50 PSI 범위 내에서 설정하세요.");
+                        isAutoMode = false;
+                        autoStartBtn.classList.remove('active');
+                        autoStartBtn.textContent = '🤖 자동 조절 시작';
+                        return;
                         }
-                        });
 
-                        function startAutoControl() {
-                        if (autoCheckInterval) clearInterval(autoCheckInterval);
+                        controlPanel.classList.add('disabled');
 
+                        const margin = 0.05;
+                        autoCheckInterval = setInterval(() => {
                         const targetPsi = parseFloat(targetPsiInput.value);
+                        const P_now = currentPressure;
 
-                        if (targetPsi < 20 || targetPsi> 50) {
-                            log("⚠️ 안전 범위를 벗어난 목표값입니다. 20~50 PSI 범위 내에서 설정하세요.");
-                            isAutoMode = false;
-                            autoStartBtn.classList.remove('active');
-                            autoStartBtn.textContent = '🤖 자동 조절 시작';
+                        if (P_now < targetPsi - margin) { if (P_now>= 50) {
+                            log("⚠️ 50 PSI 이상이므로 주입이 차단됩니다.");
+                            stopAutoControl();
                             return;
                             }
-
-                            controlPanel.classList.add('disabled');
-
-                            const margin = 0.05;
-                            autoCheckInterval = setInterval(() => {
-                            const targetPsi = parseFloat(targetPsiInput.value);
-                            const P_now = currentPressure;
-
-                            if (P_now < targetPsi - margin) { if (P_now>= 50) {
-                                log("⚠️ 50 PSI 이상이므로 주입이 차단됩니다.");
-                                stopAutoControl();
-                                return;
-                                }
-                                if (relayAction !== 'inflate') {
-                                if (relayAction === 'deflate') {
-                                stopControl('deflate');
-                                }
-                                log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
-                                startControl('inflate');
-                                }
-                                } else if (P_now > targetPsi + margin) {
-                                if (P_now <= 20) { log("⚠️ 20 PSI 이하이므로 배출이 차단됩니다."); stopAutoControl(); return; } if
-                                    (relayAction !=='deflate' ) { if (relayAction==='inflate' ) {
-                                    stopControl('inflate'); } log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표:
-                                    ${targetPsi} PSI)`); startControl('deflate'); } } else { if (relayAction) {
-                                    stopControl(relayAction); } log(`목표 압력 도달: ${targetPsi} PSI`); stopAutoControl(); }
-                                    }, 150); } function stopAutoControl() { isAutoMode=false;
-                                    autoStartBtn.classList.remove('active'); autoStartBtn.textContent='🤖 자동 조절 시작' ; if
-                                    (autoCheckInterval) { clearInterval(autoCheckInterval); autoCheckInterval=null; } if
-                                    (relayAction) { stopControl(relayAction); }
-                                    controlPanel.classList.remove('disabled'); log("자동 조절 중지됨."); } async function
-                                    connectToDevice() { try { log("블루투스 장치 요청 중..."); bleDevice=await
-                                    navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices:
-                                    [SERVICE_UUID] }); bleDevice.addEventListener('gattserverdisconnected',
-                                    onDisconnected); log("GATT 서버에 연결 중..."); bleServer=await bleDevice.gatt.connect();
-                                    log("서비스 가져오는 중..."); bleService=await bleServer.getPrimaryService(SERVICE_UUID);
-                                    log("특성(Characteristic) 가져오는 중..."); bleCharacteristic=await
-                                    bleService.getCharacteristic(CHARACTERISTIC_UUID); updateConnectionState(true); }
-                                    catch (error) { console.error("Connection failed", error); log("연결 실패: " + error.message);
+                            if (relayAction !== 'inflate') {
+                            if (relayAction === 'deflate') {
+                            stopControl('deflate');
+                            }
+                            log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                            startControl('inflate');
+                            }
+                            } else if (P_now > targetPsi + margin) {
+                            if (P_now <= 20) { log("⚠️ 20 PSI 이하이므로 배출이 차단됩니다."); stopAutoControl(); return; } if
+                                (relayAction !=='deflate' ) { if (relayAction==='inflate' ) { stopControl('inflate'); }
+                                log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                                startControl('deflate'); } } else { if (relayAction) { stopControl(relayAction); }
+                                log(`목표 압력 도달: ${targetPsi} PSI`); stopAutoControl(); } }, 150); } function
+                                stopAutoControl() { isAutoMode=false; autoStartBtn.classList.remove('active');
+                                autoStartBtn.textContent='🤖 자동 조절 시작' ; if (autoCheckInterval) {
+                                clearInterval(autoCheckInterval); autoCheckInterval=null; } if (relayAction) {
+                                stopControl(relayAction); } controlPanel.classList.remove('disabled'); log("자동 조절
+                                중지됨."); } async function connectToDevice() { try { log("블루투스 장치 요청 중...");
+                                bleDevice=await navigator.bluetooth.requestDevice({ acceptAllDevices: true,
+                                optionalServices: [SERVICE_UUID] });
+                                bleDevice.addEventListener('gattserverdisconnected', onDisconnected); log("GATT 서버에 연결
+                                중..."); bleServer=await bleDevice.gatt.connect(); log("서비스 가져오는 중..."); bleService=await
+                                bleServer.getPrimaryService(SERVICE_UUID); log("특성(Characteristic) 가져오는 중...");
+                                bleCharacteristic=await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+                                updateConnectionState(true); } catch (error) { console.error("Connection failed",
+                                error); log("연결 실패: " + error.message);
             }
         }
 
         function onDisconnected(event) {
             log(" 장치 연결이 끊어졌습니다."); updateConnectionState(false); } connectBtn.addEventListener('click', ()=> {
-                                    if (!navigator.bluetooth) {
-                                    alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
-                                    return;
-                                    }
-                                    connectToDevice();
-                                    });
+                                if (!navigator.bluetooth) {
+                                alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
+                                return;
+                                }
+                                connectToDevice();
+                                });
 
-                                    setupButtonListeners(inflateBtn, 'inflate');
-                                    setupButtonListeners(deflateBtn, 'deflate');
+                                setupButtonListeners(inflateBtn, 'inflate');
+                                setupButtonListeners(deflateBtn, 'deflate');
 
-                                    fullscreenBtn.addEventListener('click', () => {
-                                    const docEl = document.documentElement;
-                                    const requestFull = docEl.requestFullscreen || docEl.webkitRequestFullscreen ||
-                                    docEl.msRequestFullscreen;
+                                fullscreenBtn.addEventListener('click', () => {
+                                const docEl = document.documentElement;
+                                const requestFull = docEl.requestFullscreen || docEl.webkitRequestFullscreen ||
+                                docEl.msRequestFullscreen;
 
-                                    if (!requestFull) {
-                                    alert("현재 브라우저(iOS/Bluefy)에서는 전체화면 모드를 지원하지 않습니다.\n\n* '홈 화면에 추가'를 하면 전체화면이 되지만,
-                                    블루투스 연결이 안 될 수 있습니다. Bluefy 앱 내에서 사용해주세요.");
-                                    return;
-                                    }
+                                if (!requestFull) {
+                                alert("현재 브라우저(iOS/Bluefy)에서는 전체화면 모드를 지원하지 않습니다.\n\n* '홈 화면에 추가'를 하면 전체화면이 되지만,
+                                블루투스 연결이 안 될 수 있습니다. Bluefy 앱 내에서 사용해주세요.");
+                                return;
+                                }
 
-                                    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                                    requestFull.call(docEl).catch(err => {
-                                    console.log('Fullscreen error:', err);
-                                    alert("전체화면 전환에 실패했습니다.");
-                                    });
-                                    } else {
-                                    if (document.exitFullscreen) document.exitFullscreen();
-                                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-                                    }
-                                    });
+                                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                                requestFull.call(docEl).catch(err => {
+                                console.log('Fullscreen error:', err);
+                                alert("전체화면 전환에 실패했습니다.");
+                                });
+                                } else {
+                                if (document.exitFullscreen) document.exitFullscreen();
+                                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                                }
+                                });
 
-                                    document.addEventListener('fullscreenchange', () => {
-                                    if (document.fullscreenElement) {
-                                    fullscreenBtn.classList.add('fullscreen-active');
-                                    } else {
-                                    fullscreenBtn.classList.remove('fullscreen-active');
-                                    }
-                                    });
+                                document.addEventListener('fullscreenchange', () => {
+                                if (document.fullscreenElement) {
+                                fullscreenBtn.classList.add('fullscreen-active');
+                                } else {
+                                fullscreenBtn.classList.remove('fullscreen-active');
+                                }
+                                });
 
-                                    // Initialize Dashboard UI on load
-                                    updateDashboardUI();
-                                    log("연결 대기 중...");
-                                    </script>
-    </body>
+                                // Initialize Dashboard UI on load
+                                updateDashboardUI();
+                                log("연결 대기 중...");
+                                </script>
+</body>
 
 </html>
