@@ -526,6 +526,36 @@
             border-radius: 1rem;
         }
 
+        .scanner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom,
+                    transparent 0%,
+                    rgba(255, 255, 255, 0.1) 40%,
+                    rgba(255, 255, 255, 0.4) 50%,
+                    rgba(255, 255, 255, 0.1) 60%,
+                    transparent 100%);
+            background-size: 100% 200%;
+            animation: scan 3s linear infinite;
+            pointer-events: none;
+            z-index: 10;
+            border-radius: 1rem;
+            mix-blend-mode: overlay;
+        }
+
+        @keyframes scan {
+            0% {
+                background-position: 0% -100%;
+            }
+
+            100% {
+                background-position: 0% 200%;
+            }
+        }
+
         .animated-car {
             animation: float 3s ease-in-out infinite;
         }
@@ -556,6 +586,7 @@
             <!-- Connection View -->
             <div id="connection-view">
                 <div class="media-container">
+                    <div class="scanner-overlay"></div>
                     <video class="intro-car-video" autoplay loop muted playsinline poster="car_3d_render.png">
                         <source src="car_rotate.mp4" type="video/mp4">
                         <img src="car_3d_render.png" alt="3D Car View" class="intro-car-video animated-car">
