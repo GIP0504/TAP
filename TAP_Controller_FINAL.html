@@ -515,6 +515,8 @@
             position: relative;
             display: flex;
             justify-content: center;
+            -webkit-mask-image: radial-gradient(closest-side, black 85%, transparent 100%);
+            mask-image: radial-gradient(closest-side, black 85%, transparent 100%);
         }
 
         .intro-car-video {
@@ -750,6 +752,7 @@
 
         function updatePressureDisplay() {
             pressureValue.textContent = currentPressure.toFixed(1);
+
             if (currentTireId) {
                 tirePressures[currentTireId] = currentPressure;
                 saveTirePressures();
@@ -840,7 +843,6 @@
 
         function startPhysicsEngine() {
             if (physicsInterval) clearInterval(physicsInterval);
-
             let lastTickTime = Date.now();
             let lastDisplayUpdate = Date.now();
             let pressureChangeStartTime = null;
@@ -864,7 +866,6 @@
                 }
 
                 const timeSincePressureStart = (now - pressureChangeStartTime) / 1000;
-
                 if (timeSincePressureStart < 1.0) {
                     if (now - lastDisplayUpdate >= 200) {
                         updatePressureDisplay();
@@ -928,7 +929,6 @@
                 log("안전 범위를 벗어나 제어가 제한되었습니다.");
                 return;
             }
-
             relayAction = action;
             const cmdStart = (action === 'inflate') ? 'I' : 'D';
             setRelayState(true, cmdStart);
@@ -951,7 +951,6 @@
                 btn.classList.add('active');
                 startControl(action);
             };
-
             const stopAction = (e) => {
                 e.preventDefault();
                 if (btn.classList.contains('active')) {
@@ -971,9 +970,7 @@
         testModeBtn.addEventListener('click', () => {
             isSimulation = true;
             if (!localStorage.getItem('tirePressures')) {
-                tirePressures = {
-                    FL: 36.0, FR: 36.0, RL: 36.0, RR: 28.0 + Math.random() * 4.0
-                };
+                tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 28.0 + Math.random() * 4.0 };
                 saveTirePressures();
             }
             updateConnectionState(true);
