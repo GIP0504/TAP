@@ -507,6 +507,16 @@
         .hidden {
             display: none !important;
         }
+
+        .intro-car-image {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            margin: 2rem auto;
+            object-fit: contain;
+            display: block;
+            opacity: 0.9;
+        }
     </style>
 </head>
 
@@ -519,6 +529,7 @@
         <main id="main-content">
             <!-- Connection View -->
             <div id="connection-view">
+                <img src="car_side_view.png" alt="Car Side View" class="intro-car-image">
                 <button id="connect-btn" class="btn-primary"><i data-lucide="link"></i> 장치 연결</button>
                 <button id="test-mode-btn" class="btn-secondary"><i data-lucide="flask-conical"></i> 테스트 모드
                     (시뮬레이션)</button>
@@ -855,6 +866,7 @@
                 log("안전 범위를 벗어나 제어가 제한되었습니다.");
                 return;
             }
+
             relayAction = action;
             const cmdStart = (action === 'inflate') ? 'I' : 'D';
             setRelayState(true, cmdStart);
@@ -898,10 +910,7 @@
             isSimulation = true;
             if (!localStorage.getItem('tirePressures')) {
                 tirePressures = {
-                    FL: 36.0,
-                    FR: 36.0,
-                    RL: 36.0,
-                    RR: 28.0 + Math.random() * 4.0
+                    FL: 36.0, FR: 36.0, RL: 36.0, RR: 28.0 + Math.random() * 4.0
                 };
                 saveTirePressures();
             }
@@ -931,7 +940,6 @@
                 autoStartBtn.classList.add('active');
                 autoStartBtn.innerHTML = '<i data-lucide="square"></i> 자동 조절 중지';
                 lucide.createIcons();
-
                 log("자동 조절 시작...");
                 startAutoControl();
             } else {
@@ -941,7 +949,6 @@
 
         function startAutoControl() {
             if (autoCheckInterval) clearInterval(autoCheckInterval);
-
             const targetPsi = parseFloat(targetPsiInput.value);
 
             if (targetPsi < 20 || targetPsi > 50) {
@@ -954,8 +961,8 @@
             }
 
             controlPanel.classList.add('disabled');
-
             const margin = 0.05;
+
             autoCheckInterval = setInterval(() => {
                 const targetPsi = parseFloat(targetPsiInput.value);
                 const P_now = currentPressure;
@@ -967,9 +974,7 @@
                         return;
                     }
                     if (relayAction !== 'inflate') {
-                        if (relayAction === 'deflate') {
-                            stopControl('deflate');
-                        }
+                        if (relayAction === 'deflate') stopControl('deflate');
                         log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
                         startControl('inflate');
                     }
@@ -980,16 +985,12 @@
                         return;
                     }
                     if (relayAction !== 'deflate') {
-                        if (relayAction === 'inflate') {
-                            stopControl('inflate');
-                        }
+                        if (relayAction === 'inflate') stopControl('inflate');
                         log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
                         startControl('deflate');
                     }
                 } else {
-                    if (relayAction) {
-                        stopControl(relayAction);
-                    }
+                    if (relayAction) stopControl(relayAction);
                     log(`목표 압력 도달: ${targetPsi} PSI`);
                     stopAutoControl();
                 }
@@ -1001,14 +1002,11 @@
             autoStartBtn.classList.remove('active');
             autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
             lucide.createIcons();
-
             if (autoCheckInterval) {
                 clearInterval(autoCheckInterval);
                 autoCheckInterval = null;
             }
-            if (relayAction) {
-                stopControl(relayAction);
-            }
+            if (relayAction) stopControl(relayAction);
             controlPanel.classList.remove('disabled');
             log("자동 조절 중지됨.");
         }
@@ -1020,18 +1018,13 @@
                     acceptAllDevices: true,
                     optionalServices: [SERVICE_UUID]
                 });
-
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
                 log("GATT 서버에 연결 중...");
                 bleServer = await bleDevice.gatt.connect();
-
                 log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
                 bleService = await bleServer.getPrimaryService(SERVICE_UUID);
-
                 log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
                 bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-
                 log("연결 성공!");
                 updateConnectionState(true);
             } catch (error) {
