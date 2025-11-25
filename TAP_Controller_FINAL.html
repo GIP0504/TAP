@@ -772,6 +772,16 @@
         let isSimulation = false;
         let isAutoMode = false;
         let autoCheckInterval = null;
+        let tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0 };
+        let currentTireId = null;
+
+        // Storage Keys
+        const STORAGE_KEY_SIM = 'tirePressures_sim';
+        const STORAGE_KEY_BLE = 'tirePressures_ble';
+
+        function getStorageKey() {
+            return isSimulation ? STORAGE_KEY_SIM : STORAGE_KEY_BLE;
+        }
 
         // Bluetooth Constants
         const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -786,51 +796,20 @@
             logArea.textContent = message;
         }
 
-        function updateConnectionState(isConnected) {
-            if (isConnected) {
-                connectionStatus.textContent = "연결됨";
-                connectionStatus.classList.remove('disconnected');
-                connectionStatus.classList.add('connected');
-                controlPanel.classList.remove('disabled');
-                connectBtn.style.display = 'none';
-                pressureDisplay.classList.remove('hidden');
-                log("장치가 연결되었습니다. 준비 완료.");
-                showDashboard();
+        function loadTirePressures() {
+            const key = getStorageKey();
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                tirePressures = JSON.parse(saved);
             } else {
-                connectionStatus.textContent = "연결 끊김";
-                connectionStatus.classList.remove('connected');
-                connectionStatus.classList.add('disconnected');
-                controlPanel.classList.add('disabled');
-                connectBtn.style.display = 'flex';
-                pressureDisplay.classList.add('hidden');
-                log("장치 연결이 끊어졌습니다.");
-                bleCharacteristic = null;
+                // Default values if not saved
+                tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0 };
             }
         }
-
-        function updatePressureDisplay() {
-            pressureValue.textContent = currentPressure.toFixed(1);
-
-            if (currentTireId) {
-                tirePressures[currentTireId] = currentPressure;
-                saveTirePressures();
-            }
-        }
-
-        const dashboardView = document.getElementById('dashboard-view');
-        const controlView = document.getElementById('control-view');
-        const connectionView = document.getElementById('connection-view');
-        const backBtn = document.getElementById('back-to-dashboard');
-        const currentTireTitle = document.getElementById('current-tire-title');
-        const tireBtns = document.querySelectorAll('.tire-btn');
-
-        let tirePressures = JSON.parse(localStorage.getItem('tirePressures')) || {
-            FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0
-        };
-        let currentTireId = null;
 
         function saveTirePressures() {
-            localStorage.setItem('tirePressures', JSON.stringify(tirePressures));
+            const key = getStorageKey();
+            localStorage.setItem(key, JSON.stringify(tirePressures));
         }
 
         function updateDashboardUI() {
@@ -845,6 +824,10 @@
         }
 
         function showDashboard() {
+            const dashboardView = document.getElementById('dashboard-view');
+            const controlView = document.getElementById('control-view');
+            const connectionView = document.getElementById('connection-view');
+
             connectionView.classList.add('hidden');
             controlView.classList.add('hidden');
             dashboardView.classList.remove('hidden');
@@ -855,6 +838,10 @@
         }
 
         function showControlPanel(tireId) {
+            const dashboardView = document.getElementById('dashboard-view');
+            const controlView = document.getElementById('control-view');
+            const currentTireTitle = document.getElementById('current-tire-title');
+
             currentTireId = tireId;
             currentPressure = tirePressures[tireId];
 
@@ -872,16 +859,14 @@
             updatePressureDisplay();
         }
 
-        tireBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tireId = btn.dataset.tire;
-                showControlPanel(tireId);
-            });
-        });
+        function updatePressureDisplay() {
+            pressureValue.textContent = currentPressure.toFixed(1);
 
-        backBtn.addEventListener('click', () => {
-            showDashboard();
-        });
+            if (currentTireId) {
+                tirePressures[currentTireId] = currentPressure;
+                saveTirePressures();
+            }
+        }
 
         async function sendCommand(cmd) {
             if (isSimulation) return;
@@ -1025,15 +1010,91 @@
             btn.addEventListener('touchcancel', stopAction);
         }
 
+        function updateConnectionState(isConnected) {
+            if (isConnected) {
+                connectionStatus.textContent = "연결됨";
+                connectionStatus.classList.remove('disconnected');
+                connectionStatus.classList.add('connected');
+                controlPanel.classList.remove('disabled');
+                connectBtn.style.display = 'none';
+                pressureDisplay.classList.remove('hidden');
+                log("장치가 연결되었습니다. 준비 완료.");
+
+                // Start physics engine for pressure simulation even in BLE mode
+                startPhysicsEngine();
+            } else {
+                connectionStatus.textContent = "연결 끊김";
+                connectionStatus.classList.add('disconnected');
+                connectionStatus.classList.remove('connected');
+                controlPanel.classList.add('disabled');
+                connectBtn.style.display = 'block';
+                pressureDisplay.classList.add('hidden');
+
+                if (physicsInterval) {
+                    clearInterval(physicsInterval);
+                    physicsInterval = null;
+                }
+            }
+        }
+
+        async function connectToDevice() {
+            try {
+                log("블루투스 장치 요청 중...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                log("GATT 서버에 연결 중...");
+                bleServer = await bleDevice.gatt.connect();
+                log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
+                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
+                log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
+                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+                log("연결 성공!");
+
+                isSimulation = false;
+                loadTirePressures();
+                updateConnectionState(true);
+                showDashboard();
+            } catch (error) {
+                console.error("Connection failed", error);
+                log("연결 실패: " + error.message);
+            }
+        }
+
+        function onDisconnected(event) {
+            log("장치 연결이 끊어졌습니다.");
+            updateConnectionState(false);
+        }
+
+        connectBtn.addEventListener('click', () => {
+            if (!navigator.bluetooth) {
+                alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
+                return;
+            }
+            connectToDevice();
+        });
+
         testModeBtn.addEventListener('click', () => {
             isSimulation = true;
-            if (!localStorage.getItem('tirePressures')) {
-                tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 28.0 + Math.random() * 4.0 };
-                saveTirePressures();
-            }
-            updateConnectionState(true);
-            log("테스트 모드 활성화됨.");
-            startPhysicsEngine();
+            loadTirePressures();
+            updateConnectionState(true); // Simulate connection
+            showDashboard();
+            log("테스트 모드(시뮬레이션) 시작");
+        });
+
+        // Setup Tire Button Listeners
+        const tireBtns = document.querySelectorAll('.tire-btn');
+        tireBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tireId = btn.dataset.tire;
+                showControlPanel(tireId);
+            });
+        });
+
+        const backBtn = document.getElementById('back-to-dashboard');
+        backBtn.addEventListener('click', () => {
             showDashboard();
         });
 
@@ -1128,41 +1189,6 @@
             log("자동 조절 중지됨.");
         }
 
-        async function connectToDevice() {
-            try {
-                log("블루투스 장치 요청 중...");
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [SERVICE_UUID]
-                });
-                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-                log("GATT 서버에 연결 중...");
-                bleServer = await bleDevice.gatt.connect();
-                log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
-                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
-                log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
-                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-                log("연결 성공!");
-                updateConnectionState(true);
-            } catch (error) {
-                console.error("Connection failed", error);
-                log("연결 실패: " + error.message);
-            }
-        }
-
-        function onDisconnected(event) {
-            log("장치 연결이 끊어졌습니다.");
-            updateConnectionState(false);
-        }
-
-        connectBtn.addEventListener('click', () => {
-            if (!navigator.bluetooth) {
-                alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
-                return;
-            }
-            connectToDevice();
-        });
-
         setupButtonListeners(inflateBtn, 'inflate');
         setupButtonListeners(deflateBtn, 'deflate');
 
@@ -1195,6 +1221,7 @@
         });
 
         // Initialize Dashboard UI on load
+        loadTirePressures();
         updateDashboardUI();
         log("연결 대기 중...");
 
@@ -1212,9 +1239,6 @@
                 // Log the selected mode
                 const mode = btn.dataset.mode;
                 console.log(`Drive Mode changed to: ${mode}`);
-
-                // Optional: You can add specific logic for each mode here
-                // e.g., send command to device, change UI theme, etc.
             });
         });
     </script>
