@@ -508,14 +508,40 @@
             display: none !important;
         }
 
-        .intro-car-image {
+        .media-container {
             width: 100%;
             max-width: 400px;
-            height: auto;
             margin: 2rem auto;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        .intro-car-video {
+            width: 100%;
+            height: auto;
             object-fit: contain;
             display: block;
             opacity: 0.9;
+            border-radius: 1rem;
+        }
+
+        .animated-car {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
         }
     </style>
 </head>
@@ -529,7 +555,12 @@
         <main id="main-content">
             <!-- Connection View -->
             <div id="connection-view">
-                <img src="car_side_view.png" alt="Car Side View" class="intro-car-image">
+                <div class="media-container">
+                    <video class="intro-car-video" autoplay loop muted playsinline poster="car_3d_render.png">
+                        <source src="car_rotate.mp4" type="video/mp4">
+                        <img src="car_3d_render.png" alt="3D Car View" class="intro-car-video animated-car">
+                    </video>
+                </div>
                 <button id="connect-btn" class="btn-primary"><i data-lucide="link"></i> 장치 연결</button>
                 <button id="test-mode-btn" class="btn-secondary"><i data-lucide="flask-conical"></i> 테스트 모드
                     (시뮬레이션)</button>
