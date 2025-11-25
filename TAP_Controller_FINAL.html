@@ -575,6 +575,57 @@
                 transform: translateY(0px);
             }
         }
+
+        /* Drive Mode Controls */
+        .drive-mode-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+
+        .mode-btn {
+            padding: 0.8rem 1.5rem;
+            border: 2px solid #333;
+            border-radius: 9999px;
+            background: #111;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mode-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Normal Mode - Blue */
+        .mode-btn[data-mode="normal"].active {
+            background: #0ea5e9;
+            border-color: #0ea5e9;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+        }
+
+        /* Sports Mode - Orange */
+        .mode-btn[data-mode="sports"].active {
+            background: #f97316;
+            border-color: #f97316;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
+        }
+
+        /* Comfort Mode - Purple */
+        .mode-btn[data-mode="comfort"].active {
+            background: #8b5cf6;
+            border-color: #8b5cf6;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+        }
     </style>
 </head>
 
@@ -625,6 +676,13 @@
                         <span class="tire-psi">--</span>
                         <span class="tire-label">psi</span>
                     </button>
+                </div>
+
+                <!-- Drive Mode Controls -->
+                <div class="drive-mode-controls">
+                    <button class="mode-btn active" data-mode="normal">Normal</button>
+                    <button class="mode-btn" data-mode="sports">Sports</button>
+                    <button class="mode-btn" data-mode="comfort">Comfort</button>
                 </div>
 
                 <div class="dashboard-footer">
@@ -1139,6 +1197,26 @@
         // Initialize Dashboard UI on load
         updateDashboardUI();
         log("연결 대기 중...");
+
+        // Drive Mode Logic
+        const modeBtns = document.querySelectorAll('.mode-btn');
+
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                modeBtns.forEach(b => b.classList.remove('active'));
+
+                // Add active class to clicked button
+                btn.classList.add('active');
+
+                // Log the selected mode
+                const mode = btn.dataset.mode;
+                console.log(`Drive Mode changed to: ${mode}`);
+
+                // Optional: You can add specific logic for each mode here
+                // e.g., send command to device, change UI theme, etc.
+            });
+        });
     </script>
 </body>
 
