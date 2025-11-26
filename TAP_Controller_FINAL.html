@@ -627,21 +627,16 @@
             box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
         }
 
-        /* Smart Mode Button Style */
-        .mode-btn[data-mode="smart"] {
-            border-color: #10b981;
-            /* Emerald Green */
-            color: #10b981;
-        }
-
+        /* Smart Mode - White */
         .mode-btn[data-mode="smart"].active {
-            background: #10b981;
-            color: #fff;
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            background: #ffffff;
+            border-color: #ffffff;
+            color: #000;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
         }
 
-        /* Smart Mode Modal */
-        .modal-overlay {
+        /* Modal Styles */
+        .modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -652,111 +647,86 @@
             justify-content: center;
             align-items: center;
             z-index: 2000;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.hidden {
+            display: none;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.3s ease;
         }
 
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .smart-modal {
+        .modal-content {
             background: #1a1a1a;
+            padding: 2rem;
+            border-radius: 1.5rem;
             width: 90%;
             max-width: 400px;
-            border-radius: 1.5rem;
-            padding: 2rem;
             border: 1px solid #333;
+            position: relative;
+            text-align: center;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            transform: translateY(20px);
-            transition: transform 0.3s ease;
-        }
-
-        .modal-overlay.active .smart-modal {
-            transform: translateY(0);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #fff;
         }
 
         .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
             background: none;
             border: none;
-            color: #888;
+            color: #666;
             font-size: 1.5rem;
             cursor: pointer;
         }
 
-        .smart-form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .smart-label {
-            display: block;
-            color: #aaa;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            font-weight: 600;
+        .smart-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1.5rem 0;
         }
 
         .smart-select {
-            width: 100%;
             padding: 1rem;
-            background: #111;
-            border: 2px solid #333;
+            background: #222;
+            border: 1px solid #444;
             border-radius: 0.75rem;
             color: #fff;
             font-size: 1rem;
             outline: none;
         }
 
-        .smart-select:focus {
-            border-color: var(--accent-color);
+        .recommendation {
+            margin: 1.5rem 0;
+            font-size: 1.1rem;
+            color: #a0a0a0;
         }
 
-        .recommended-display {
-            background: #222;
-            padding: 1.5rem;
-            border-radius: 1rem;
-            text-align: center;
-            margin-bottom: 1.5rem;
-            border: 1px solid #333;
-        }
-
-        .rec-label {
-            color: #888;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .rec-value {
-            font-size: 2.5rem;
+        #rec-psi {
+            color: #fff;
             font-weight: 700;
-            color: var(--inflate-color);
+            font-size: 1.5rem;
         }
 
-        .btn-apply {
+        .btn-neon-white {
             width: 100%;
             padding: 1rem;
-            background: var(--accent-color);
-            color: #000;
             border: none;
             border-radius: 0.75rem;
+            background: #ffffff;
+            color: #000;
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1rem;
             cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-neon-white:active {
+            transform: scale(0.98);
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
         }
     </style>
 </head>
@@ -815,7 +785,38 @@
                     <button class="mode-btn active" data-mode="normal">Normal</button>
                     <button class="mode-btn" data-mode="sports">Sports</button>
                     <button class="mode-btn" data-mode="comfort">Comfort</button>
-                    <button class="mode-btn" data-mode="smart">Smart</button>
+                    <button class="mode-btn" data-mode="smart">SMART</button>
+                </div>
+
+                <!-- Smart Mode Modal -->
+                <div id="smart-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <button class="close-modal">&times;</button>
+                        <h2 style="margin-bottom: 0.5rem;">스마트 공기압 설정</h2>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">날씨와 노면에 맞는 최적의 공기압을 추천합니다.</p>
+
+                        <div class="smart-controls">
+                            <select id="weather-select" class="smart-select">
+                                <option value="normal">평상시 (Normal)</option>
+                                <option value="rain">우천 시 (Rain)</option>
+                                <option value="snow">강설 시 (Snow)</option>
+                                <option value="heat">폭염 시 (Heat)</option>
+                            </select>
+                            <select id="road-select" class="smart-select">
+                                <option value="asphalt">아스팔트 (Asphalt)</option>
+                                <option value="wet">젖은 노면 (Wet)</option>
+                                <option value="snow">눈길 (Snow)</option>
+                                <option value="gravel">자갈길 (Gravel)</option>
+                                <option value="mud">진흙길 (Mud)</option>
+                            </select>
+                        </div>
+
+                        <div class="recommendation">
+                            추천 공기압: <span id="rec-psi">34</span> PSI
+                        </div>
+
+                        <button id="apply-smart-btn" class="btn-neon-white">✅ 적용하기</button>
+                    </div>
                 </div>
 
                 <div class="dashboard-footer">
@@ -879,45 +880,6 @@
         </main>
     </div>
     <button id="fullscreen-btn" class="fullscreen-btn" title="전체화면"><i data-lucide="maximize"></i></button>
-
-    <!-- Smart Mode Modal -->
-    <div id="smart-mode-modal" class="modal-overlay">
-        <div class="smart-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">스마트 공기압 설정</h3>
-                <button id="close-smart-modal" class="close-modal">&times;</button>
-            </div>
-
-            <div class="smart-form-group">
-                <label class="smart-label">날씨 / 기온</label>
-                <select id="weather-select" class="smart-select">
-                    <option value="normal">평상시</option>
-                    <option value="rain">우천 시</option>
-                    <option value="snow">강설 시</option>
-                    <option value="heat">폭염 시</option>
-                </select>
-            </div>
-
-            <div class="smart-form-group">
-                <label class="smart-label">노면 상태</label>
-                <select id="road-select" class="smart-select">
-                    <option value="asphalt">아스팔트</option>
-                    <option value="wet">젖은 노면</option>
-                    <option value="snow_road">눈길</option>
-                    <option value="gravel">자갈길</option>
-                    <option value="mud">진흙길</option>
-                </select>
-            </div>
-
-            <div class="recommended-display">
-                <div class="rec-label">추천 공기압</div>
-                <div class="rec-value"><span id="rec-psi-value">34</span> <span
-                        style="font-size:1rem; color:#888;">PSI</span></div>
-            </div>
-
-            <button id="apply-smart-btn" class="btn-apply">적용하기</button>
-        </div>
-    </div>
 
     <script>
         const connectBtn = document.getElementById('connect-btn');
@@ -1058,51 +1020,21 @@
 
         function startPhysicsEngine() {
             if (physicsInterval) clearInterval(physicsInterval);
-            let lastTickTime = Date.now();
-            let lastDisplayUpdate = Date.now();
-            let pressureChangeStartTime = null;
 
             physicsInterval = setInterval(() => {
                 const now = Date.now();
-                const deltaTime = (now - lastTickTime) / 1000;
-                lastTickTime = now;
+                const deltaTime = 0.1; // seconds
 
-                if (!isRelayOn) {
-                    pressureChangeStartTime = null;
-                    if (now - lastDisplayUpdate >= 200) {
-                        updatePressureDisplay();
-                        lastDisplayUpdate = now;
+                if (isRelayOn && relayAction) {
+                    if (relayAction === 'inflate') {
+                        currentPressure += 0.5 * deltaTime; // Simulate inflation
+                        if (currentPressure > 100) currentPressure = 100;
+                    } else if (relayAction === 'deflate') {
+                        currentPressure -= 0.5 * deltaTime; // Simulate deflation
+                        if (currentPressure < 0) currentPressure = 0;
                     }
-                    return;
-                }
-
-                if (pressureChangeStartTime === null) {
-                    pressureChangeStartTime = Date.now();
-                }
-
-                const timeSincePressureStart = (now - pressureChangeStartTime) / 1000;
-                if (timeSincePressureStart < 1.0) {
-                    if (now - lastDisplayUpdate >= 200) {
-                        updatePressureDisplay();
-                        checkSafetyLimits();
-                        lastDisplayUpdate = now;
-                    }
-                    return;
-                }
-
-                if (relayAction === 'inflate') {
-                    currentPressure += 0.2 * deltaTime;
-                } else if (relayAction === 'deflate') {
-                    currentPressure -= 0.2 * deltaTime;
-                }
-
-                if (currentPressure < 0) currentPressure = 0;
-                if (currentPressure > 100) currentPressure = 100;
-
-                if (now - lastDisplayUpdate >= 200) {
                     updatePressureDisplay();
                     checkSafetyLimits();
-                    lastDisplayUpdate = now;
                 }
             }, 100);
         }
@@ -1144,6 +1076,7 @@
                 log("안전 범위를 벗어나 제어가 제한되었습니다.");
                 return;
             }
+
             relayAction = action;
             const cmdStart = (action === 'inflate') ? 'I' : 'D';
             setRelayState(true, cmdStart);
@@ -1218,18 +1151,22 @@
                 });
 
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
                 log("GATT 서버에 연결 중...");
                 bleServer = await bleDevice.gatt.connect();
+
                 log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
                 bleService = await bleServer.getPrimaryService(SERVICE_UUID);
+
                 log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
                 bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-                log("연결 성공!");
 
+                log("연결 성공!");
                 isSimulation = false;
                 loadTirePressures();
                 updateConnectionState(true);
                 showDashboard();
+
             } catch (error) {
                 console.error("Connection failed", error);
                 log("연결 실패: " + error.message);
@@ -1240,6 +1177,126 @@
             log("장치 연결이 끊어졌습니다.");
             updateConnectionState(false);
         }
+
+        // Smart Pressure Table
+        const SMART_PRESSURE_TABLE = {
+            'normal': { 'asphalt': 34, 'wet': 35, 'snow': 32, 'gravel': 31, 'mud': 31 },
+            'rain': { 'asphalt': 35, 'wet': 36, 'snow': 33, 'gravel': 32, 'mud': 32 },
+            'snow': { 'asphalt': 32, 'wet': 33, 'snow': 30, 'gravel': 29, 'mud': 29 },
+            'heat': { 'asphalt': 32.5, 'wet': 33.5, 'snow': 30.5, 'gravel': 29.5, 'mud': 29.5 }
+        };
+
+        // Smart Mode Elements
+        const smartModal = document.getElementById('smart-modal');
+        const closeModalBtn = document.querySelector('.close-modal');
+        const weatherSelect = document.getElementById('weather-select');
+        const roadSelect = document.getElementById('road-select');
+        const recPsiDisplay = document.getElementById('rec-psi');
+        const applySmartBtn = document.getElementById('apply-smart-btn');
+        const smartModeBtn = document.querySelector('.mode-btn[data-mode="smart"]');
+
+        function updateSmartRecommendation() {
+            const weather = weatherSelect.value;
+            const road = roadSelect.value;
+            const recPsi = SMART_PRESSURE_TABLE[weather][road];
+            recPsiDisplay.textContent = recPsi;
+        }
+
+        weatherSelect.addEventListener('change', updateSmartRecommendation);
+        roadSelect.addEventListener('change', updateSmartRecommendation);
+
+        smartModeBtn.addEventListener('click', () => {
+            if (isSimulation) {
+                alert("테스트 모드(시뮬레이션)에서는 스마트 모드를 사용할 수 없습니다.");
+                return;
+            }
+            smartModal.classList.remove('hidden');
+            updateSmartRecommendation();
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            smartModal.classList.add('hidden');
+        });
+
+        // Close modal when clicking outside
+        smartModal.addEventListener('click', (e) => {
+            if (e.target === smartModal) {
+                smartModal.classList.add('hidden');
+            }
+        });
+
+        applySmartBtn.addEventListener('click', () => {
+            if (isSimulation) return;
+
+            const weather = weatherSelect.value;
+            const road = roadSelect.value;
+            const targetPsi = SMART_PRESSURE_TABLE[weather][road];
+
+            // Apply to FL, FR, RL (Skip RR)
+            tirePressures.FL = targetPsi;
+            tirePressures.FR = targetPsi;
+            tirePressures.RL = targetPsi;
+            // RR is exception
+
+            saveTirePressures();
+            updateDashboardUI();
+
+            // Send BLE commands if connected
+            if (bleCharacteristic) {
+                sendCommand(`SET_FL:${targetPsi}`);
+                sendCommand(`SET_FR:${targetPsi}`);
+                sendCommand(`SET_RL:${targetPsi}`);
+            }
+
+            smartModal.classList.add('hidden');
+
+            // Visual feedback on Smart button
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            smartModeBtn.classList.add('active');
+        });
+
+        // Drive Mode Logic
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            if (btn.dataset.mode === 'smart') return; // Handled separately
+
+            btn.addEventListener('click', () => {
+                if (isSimulation) {
+                    alert("테스트 모드(시뮬레이션)에서는 주행 모드를 변경할 수 없습니다.");
+                    return;
+                }
+
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const mode = btn.dataset.mode;
+                let fl, fr, rl;
+
+                if (mode === 'normal') {
+                    fl = 34; fr = 34; rl = 34;
+                } else if (mode === 'sports') {
+                    fl = 36; fr = 36; rl = 35;
+                } else if (mode === 'comfort') {
+                    fl = 32; fr = 32; rl = 32;
+                }
+
+                // Apply to FL, FR, RL (Skip RR)
+                if (fl !== undefined) {
+                    tirePressures.FL = fl;
+                    tirePressures.FR = fr;
+                    tirePressures.RL = rl;
+                    // RR is exception
+
+                    saveTirePressures();
+                    updateDashboardUI();
+
+                    if (bleCharacteristic) {
+                        sendCommand(`SET_FL:${fl}`);
+                        sendCommand(`SET_FR:${fr}`);
+                        sendCommand(`SET_RL:${rl}`);
+                    }
+                }
+            });
+        });
 
         connectBtn.addEventListener('click', () => {
             if (!navigator.bluetooth) {
@@ -1315,7 +1372,6 @@
             const margin = 0.05;
 
             autoCheckInterval = setInterval(() => {
-                const targetPsi = parseFloat(targetPsiInput.value);
                 const P_now = currentPressure;
 
                 if (P_now < targetPsi - margin) {
@@ -1341,128 +1397,63 @@
                         startControl('deflate');
                     }
                 } else {
-                    log(`목표 도달! (현재: ${P_now.toFixed(1)} PSI)`);
+                    if (relayAction) stopControl(relayAction);
+                    log(`목표 압력 도달: ${targetPsi} PSI`);
                     stopAutoControl();
                 }
-            }, 100);
+            }, 150);
         }
 
         function stopAutoControl() {
+            isAutoMode = false;
+            autoStartBtn.classList.remove('active');
+            autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
+            lucide.createIcons();
+
             if (autoCheckInterval) {
                 clearInterval(autoCheckInterval);
                 autoCheckInterval = null;
             }
             if (relayAction) stopControl(relayAction);
-            isAutoMode = false;
-            autoStartBtn.classList.remove('active');
-            autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
             controlPanel.classList.remove('disabled');
-            lucide.createIcons();
-            log("자동 조절 종료.");
+            log("자동 조절 중지됨.");
         }
 
         setupButtonListeners(inflateBtn, 'inflate');
         setupButtonListeners(deflateBtn, 'deflate');
 
         fullscreenBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+            const docEl = document.documentElement;
+            const requestFull = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+
+            if (!requestFull) {
+                alert("현재 브라우저(iOS/Bluefy)에서는 전체화면 모드를 지원하지 않습니다.\n\n* '홈 화면에 추가'를 하면 전체화면이 되지만, 블루투스 연결이 안 될 수 있습니다. Bluefy 앱 내에서 사용해주세요.");
+                return;
+            }
+
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                requestFull.call(docEl).catch(err => {
+                    console.log('Fullscreen error:', err);
+                    alert("전체화면 전환에 실패했습니다.");
                 });
-                fullscreenBtn.classList.add('fullscreen-active');
             } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                    fullscreenBtn.classList.remove('fullscreen-active');
-                }
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
             }
         });
 
-        // Initialize Lucide icons
-        if (window.lucide) {
-            lucide.createIcons();
-        }
-
-        // Smart Mode Logic
-        const smartModal = document.getElementById('smart-mode-modal');
-        const closeSmartModalBtn = document.getElementById('close-smart-modal');
-        const weatherSelect = document.getElementById('weather-select');
-        const roadSelect = document.getElementById('road-select');
-        const recPsiValue = document.getElementById('rec-psi-value');
-        const applySmartBtn = document.getElementById('apply-smart-btn');
-        const modeBtns = document.querySelectorAll('.mode-btn');
-
-        const smartPressureTable = {
-            'normal': { 'asphalt': 34, 'wet': 35, 'snow_road': 32, 'gravel': 31, 'mud': 31 },
-            'rain': { 'asphalt': 35, 'wet': 36, 'snow_road': 33, 'gravel': 32, 'mud': 32 },
-            'snow': { 'asphalt': 32, 'wet': 33, 'snow_road': 30, 'gravel': 29, 'mud': 29 },
-            'heat': { 'asphalt': 32.5, 'wet': 33.5, 'snow_road': 30.5, 'gravel': 29.5, 'mud': 29.5 }
-        };
-
-        function updateRecommendedPsi() {
-            const weather = weatherSelect.value;
-            const road = roadSelect.value;
-            const psi = smartPressureTable[weather][road];
-            recPsiValue.textContent = psi;
-        }
-
-        weatherSelect.addEventListener('change', updateRecommendedPsi);
-        roadSelect.addEventListener('change', updateRecommendedPsi);
-
-        closeSmartModalBtn.addEventListener('click', () => {
-            smartModal.classList.remove('active');
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                fullscreenBtn.classList.add('fullscreen-active');
+            } else {
+                fullscreenBtn.classList.remove('fullscreen-active');
+            }
         });
 
-        applySmartBtn.addEventListener('click', () => {
-            const psi = parseFloat(recPsiValue.textContent);
-            targetPsiInput.value = psi;
-
-            // Set all tires to this pressure
-            tirePressures.FL = psi;
-            tirePressures.FR = psi;
-            tirePressures.RL = psi;
-            tirePressures.RR = psi;
-            saveTirePressures();
-            updateDashboardUI();
-
-            smartModal.classList.remove('active');
-
-            // Activate Smart Button
-            modeBtns.forEach(b => b.classList.remove('active'));
-            document.querySelector('.mode-btn[data-mode="smart"]').classList.add('active');
-
-            log(`스마트 모드 적용: ${psi} PSI`);
-        });
-
-        // Update Drive Mode Logic
-        modeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const mode = btn.dataset.mode;
-
-                if (mode === 'smart') {
-                    smartModal.classList.add('active');
-                    return; // Don't set active class yet
-                }
-
-                // Remove active class from all buttons
-                modeBtns.forEach(b => b.classList.remove('active'));
-                // Add active class to clicked button
-                btn.classList.add('active');
-
-                // Logic for other modes
-                if (mode === 'normal') {
-                    tirePressures = { FL: 34, FR: 34, RL: 34, RR: 34 };
-                } else if (mode === 'sports') {
-                    tirePressures = { FL: 36, FR: 36, RL: 35, RR: 35 };
-                } else if (mode === 'comfort') {
-                    tirePressures = { FL: 32, FR: 32, RL: 32, RR: 32 };
-                }
-
-                saveTirePressures();
-                updateDashboardUI();
-                log(`Drive Mode changed to: ${mode}`);
-            });
-        });
+        // Initialize Dashboard UI on load
+        loadTirePressures();
+        updateDashboardUI();
+        log("연결 대기 중...");
     </script>
 </body>
 
