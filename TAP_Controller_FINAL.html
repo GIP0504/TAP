@@ -908,6 +908,7 @@
         let autoCheckInterval = null;
         let tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0 };
         let currentTireId = null;
+        let controlTimeout = null;
 
         // Storage Keys
         const STORAGE_KEY_SIM = 'tirePressures_sim';
@@ -1002,6 +1003,69 @@
             }
         }
 
+        async function connectToDevice() {
+            try {
+                log("블루투스 장치 요청 중...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                log("GATT 서버에 연결 중...");
+                bleServer = await bleDevice.gatt.connect();
+
+                log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
+                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
+
+                log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
+                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+
+                log("연결 성공!");
+                isSimulation = false;
+                loadTirePressures();
+                updateConnectionState(true);
+                showDashboard();
+
+            } catch (error) {
+                console.error("Connection failed", error);
+                log("연결 실패: " + error.message);
+            }
+        }
+
+        function onDisconnected(event) {
+            log("장치 연결이 끊어졌습니다.");
+            updateConnectionState(false);
+        }
+
+        function updateConnectionState(isConnected) {
+            if (isConnected) {
+                connectionStatus.textContent = "연결됨";
+                connectionStatus.classList.remove('disconnected');
+                connectionStatus.classList.add('connected');
+                controlPanel.classList.remove('disabled');
+                connectBtn.style.display = 'none';
+                pressureDisplay.classList.remove('hidden');
+                log("장치가 연결되었습니다. 준비 완료.");
+
+                // Start physics engine for pressure simulation even in BLE mode
+                startPhysicsEngine();
+            } else {
+                connectionStatus.textContent = "연결 끊김";
+                connectionStatus.classList.add('disconnected');
+                connectionStatus.classList.remove('connected');
+                controlPanel.classList.add('disabled');
+                connectBtn.style.display = 'block';
+                pressureDisplay.classList.add('hidden');
+
+                if (physicsInterval) {
+                    clearInterval(physicsInterval);
+                    physicsInterval = null;
+                }
+            }
+        }
+
         async function sendCommand(cmd) {
             if (isSimulation) return;
             if (!bleCharacteristic) {
@@ -1027,10 +1091,10 @@
 
                 if (isRelayOn && relayAction) {
                     if (relayAction === 'inflate') {
-                        currentPressure += 0.5 * deltaTime; // Simulate inflation
+                        currentPressure += 0.15 * deltaTime; // 0.15 PSI/s
                         if (currentPressure > 100) currentPressure = 100;
                     } else if (relayAction === 'deflate') {
-                        currentPressure -= 0.5 * deltaTime; // Simulate deflation
+                        currentPressure -= 0.15 * deltaTime; // 0.15 PSI/s
                         if (currentPressure < 0) currentPressure = 0;
                     }
                     updatePressureDisplay();
@@ -1077,15 +1141,29 @@
                 return;
             }
 
-            relayAction = action;
-            const cmdStart = (action === 'inflate') ? 'I' : 'D';
-            setRelayState(true, cmdStart);
+            // Clear any existing timeout
+            if (controlTimeout) clearTimeout(controlTimeout);
+
+            // 1 second delay
+            controlTimeout = setTimeout(() => {
+                relayAction = action;
+                const cmdStart = (action === 'inflate') ? 'I' : 'D';
+                setRelayState(true, cmdStart);
+            }, 1000);
         }
 
         function stopControl(action) {
-            const cmdStop = (action === 'inflate') ? 'i' : 'd';
-            setRelayState(false, cmdStop);
-            relayAction = null;
+            // Clear timeout if button released before 1 second
+            if (controlTimeout) {
+                clearTimeout(controlTimeout);
+                controlTimeout = null;
+            }
+
+            if (relayAction) {
+                const cmdStop = (action === 'inflate') ? 'i' : 'd';
+                setRelayState(false, cmdStop);
+                relayAction = null;
+            }
         }
 
         function setRelayState(state, cmd) {
@@ -1113,69 +1191,6 @@
             btn.addEventListener('touchstart', startAction);
             btn.addEventListener('touchend', stopAction);
             btn.addEventListener('touchcancel', stopAction);
-        }
-
-        function updateConnectionState(isConnected) {
-            if (isConnected) {
-                connectionStatus.textContent = "연결됨";
-                connectionStatus.classList.remove('disconnected');
-                connectionStatus.classList.add('connected');
-                controlPanel.classList.remove('disabled');
-                connectBtn.style.display = 'none';
-                pressureDisplay.classList.remove('hidden');
-                log("장치가 연결되었습니다. 준비 완료.");
-
-                // Start physics engine for pressure simulation even in BLE mode
-                startPhysicsEngine();
-            } else {
-                connectionStatus.textContent = "연결 끊김";
-                connectionStatus.classList.add('disconnected');
-                connectionStatus.classList.remove('connected');
-                controlPanel.classList.add('disabled');
-                connectBtn.style.display = 'block';
-                pressureDisplay.classList.add('hidden');
-
-                if (physicsInterval) {
-                    clearInterval(physicsInterval);
-                    physicsInterval = null;
-                }
-            }
-        }
-
-        async function connectToDevice() {
-            try {
-                log("블루투스 장치 요청 중...");
-                bleDevice = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [SERVICE_UUID]
-                });
-
-                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
-                log("GATT 서버에 연결 중...");
-                bleServer = await bleDevice.gatt.connect();
-
-                log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
-                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
-
-                log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
-                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
-
-                log("연결 성공!");
-                isSimulation = false;
-                loadTirePressures();
-                updateConnectionState(true);
-                showDashboard();
-
-            } catch (error) {
-                console.error("Connection failed", error);
-                log("연결 실패: " + error.message);
-            }
-        }
-
-        function onDisconnected(event) {
-            log("장치 연결이 끊어졌습니다.");
-            updateConnectionState(false);
         }
 
         // Smart Pressure Table
