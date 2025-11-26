@@ -1110,6 +1110,10 @@
             if (inflateDisabled) {
                 inflateBtn.classList.add('disabled');
                 inflateBtn.disabled = true;
+                if (relayAction === 'inflate') {
+                    stopControl('inflate');
+                    log("⚠️ 최대 압력(50 PSI) 도달. 주입 중단.");
+                }
             } else {
                 inflateBtn.classList.remove('disabled');
                 inflateBtn.disabled = false;
@@ -1118,17 +1122,21 @@
             if (deflateDisabled) {
                 deflateBtn.classList.add('disabled');
                 deflateBtn.disabled = true;
+                if (relayAction === 'deflate') {
+                    stopControl('deflate');
+                    log("⚠️ 최소 압력(20 PSI) 도달. 배출 중단.");
+                }
             } else {
                 deflateBtn.classList.remove('disabled');
                 deflateBtn.disabled = false;
             }
 
             if (currentPressure < 20) {
-                log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨.");
+                // log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨.");
             } else if (currentPressure < 25) {
                 log("⚠️ 저압 주의: 실제 차량에서는 주행이 위험할 수 있는 수준입니다.");
             } else if (currentPressure > 50) {
-                log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
+                // log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
             } else if (currentPressure > 45) {
                 log("⚠️ 고압 주의: 실제 차량에서는 타이어 손상 위험이 있을 수 있습니다.");
             }
