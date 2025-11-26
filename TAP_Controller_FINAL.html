@@ -1134,7 +1134,7 @@
             }
         }
 
-        function startControl(action) {
+        function startControl(action, immediate = false) {
             const btn = (action === 'inflate') ? inflateBtn : deflateBtn;
             if (btn.disabled) {
                 log("안전 범위를 벗어나 제어가 제한되었습니다.");
@@ -1144,12 +1144,18 @@
             // Clear any existing timeout
             if (controlTimeout) clearTimeout(controlTimeout);
 
-            // 1 second delay
-            controlTimeout = setTimeout(() => {
+            const execute = () => {
                 relayAction = action;
                 const cmdStart = (action === 'inflate') ? 'I' : 'D';
                 setRelayState(true, cmdStart);
-            }, 1000);
+            };
+
+            if (immediate) {
+                execute();
+            } else {
+                // 1 second delay
+                controlTimeout = setTimeout(execute, 1000);
+            }
         }
 
         function stopControl(action) {
@@ -1398,7 +1404,7 @@
                     if (relayAction !== 'inflate') {
                         if (relayAction === 'deflate') stopControl('deflate');
                         log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
-                        startControl('inflate');
+                        startControl('inflate', true);
                     }
                 } else if (P_now > targetPsi + margin) {
                     if (P_now <= 20) {
@@ -1409,7 +1415,7 @@
                     if (relayAction !== 'deflate') {
                         if (relayAction === 'inflate') stopControl('inflate');
                         log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
-                        startControl('deflate');
+                        startControl('deflate', true);
                     }
                 } else {
                     if (relayAction) stopControl(relayAction);
