@@ -1082,6 +1082,9 @@
             }
         }
 
+        let isDisplayPaused = false;
+        let displayPauseTimeout = null;
+
         function startPhysicsEngine() {
             if (physicsInterval) clearInterval(physicsInterval);
 
@@ -1097,7 +1100,11 @@
                         currentPressure -= 0.15 * deltaTime; // 0.15 PSI/s
                         if (currentPressure < 0) currentPressure = 0;
                     }
-                    updatePressureDisplay();
+
+                    // Only update display if not paused
+                    if (!isDisplayPaused) {
+                        updatePressureDisplay();
+                    }
                     checkSafetyLimits();
                 }
             }, 100);
@@ -1149,29 +1156,29 @@
                 return;
             }
 
-            // Clear any existing timeout
-            if (controlTimeout) clearTimeout(controlTimeout);
+            // Immediate execution (Relay ON)
+            relayAction = action;
+            const cmdStart = (action === 'inflate') ? 'I' : 'D';
+            setRelayState(true, cmdStart);
 
-            const execute = () => {
-                relayAction = action;
-                const cmdStart = (action === 'inflate') ? 'I' : 'D';
-                setRelayState(true, cmdStart);
-            };
-
-            if (immediate) {
-                execute();
-            } else {
-                // 1 second delay
-                controlTimeout = setTimeout(execute, 1000);
+            // Pause display update for 1 second
+            if (!isDisplayPaused) {
+                isDisplayPaused = true;
+                if (displayPauseTimeout) clearTimeout(displayPauseTimeout);
+                displayPauseTimeout = setTimeout(() => {
+                    isDisplayPaused = false;
+                }, 1000);
             }
         }
 
         function stopControl(action) {
-            // Clear timeout if button released before 1 second
-            if (controlTimeout) {
-                clearTimeout(controlTimeout);
-                controlTimeout = null;
+            // Resume display updates immediately
+            if (displayPauseTimeout) {
+                clearTimeout(displayPauseTimeout);
+                displayPauseTimeout = null;
             }
+            isDisplayPaused = false;
+            updatePressureDisplay(); // Update once immediately to show final state
 
             if (relayAction) {
                 const cmdStop = (action === 'inflate') ? 'i' : 'd';
