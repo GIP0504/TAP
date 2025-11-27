@@ -1152,18 +1152,17 @@
             // Clear any existing timeout
             if (controlTimeout) clearTimeout(controlTimeout);
 
-            // 1. Send BLE Command IMMEDIATELY
-            const cmdStart = (action === 'inflate') ? 'I' : 'D';
-            setRelayState(true, cmdStart);
-
-            // 2. Manage RelayAction (Physics/UI update)
-            if (immediate) {
+            const execute = () => {
                 relayAction = action;
+                const cmdStart = (action === 'inflate') ? 'I' : 'D';
+                setRelayState(true, cmdStart);
+            };
+
+            if (immediate) {
+                execute();
             } else {
-                // Delay UI updates by 1 second
-                controlTimeout = setTimeout(() => {
-                    relayAction = action;
-                }, 1000);
+                // 1 second delay
+                controlTimeout = setTimeout(execute, 1000);
             }
         }
 
@@ -1174,12 +1173,11 @@
                 controlTimeout = null;
             }
 
-            // Always send stop command
-            const cmdStop = (action === 'inflate') ? 'i' : 'd';
-            setRelayState(false, cmdStop);
-
-            // Reset relayAction
-            relayAction = null;
+            if (relayAction) {
+                const cmdStop = (action === 'inflate') ? 'i' : 'd';
+                setRelayState(false, cmdStop);
+                relayAction = null;
+            }
         }
 
         function setRelayState(state, cmd) {
