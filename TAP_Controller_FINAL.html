@@ -902,6 +902,536 @@
         let isRelayOn = false;
         let relayAction = null;
         let physicsInterval = null;
+        let lastInflateTime = 0;
+        let isSimulation = false;
+        let isAutoMode = false;
+        let autoCheckInterval = null;
+        let tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0 };
+        let currentTireId = null;
+        let controlTimeout = null;
+
+        // Storage Keys
+        const STORAGE_KEY_SIM = 'tirePressures_sim';
+        const STORAGE_KEY_BLE = 'tirePressures_ble';
+
+        function getStorageKey() {
+            return isSimulation ? STORAGE_KEY_SIM : STORAGE_KEY_BLE;
+        }
+
+        // Bluetooth Constants
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        let bleDevice = null;
+        let bleServer = null;
+        let bleService = null;
+        let bleCharacteristic = null;
+
+        function log(message) {
+            console.log(message);
+            logArea.textContent = message;
+        }
+
+        function loadTirePressures() {
+            const key = getStorageKey();
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                tirePressures = JSON.parse(saved);
+            } else {
+                // Default values if not saved
+                tirePressures = { FL: 36.0, FR: 36.0, RL: 36.0, RR: 30.0 };
+            }
+        }
+
+        function saveTirePressures() {
+            const key = getStorageKey();
+            localStorage.setItem(key, JSON.stringify(tirePressures));
+        }
+
+        function updateDashboardUI() {
+            document.querySelector('.tire-btn.fl .tire-psi').textContent = tirePressures.FL.toFixed(1);
+            document.querySelector('.tire-btn.fr .tire-psi').textContent = tirePressures.FR.toFixed(1);
+            document.querySelector('.tire-btn.rl .tire-psi').textContent = tirePressures.RL.toFixed(1);
+            document.querySelector('.tire-btn.rr .tire-psi').textContent = tirePressures.RR.toFixed(1);
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+        function showDashboard() {
+            const dashboardView = document.getElementById('dashboard-view');
+            const controlView = document.getElementById('control-view');
+            const connectionView = document.getElementById('connection-view');
+
+            connectionView.classList.add('hidden');
+            controlView.classList.add('hidden');
+            dashboardView.classList.remove('hidden');
+            updateDashboardUI();
+
+            if (relayAction) stopControl(relayAction);
+            if (isAutoMode) stopAutoControl();
+        }
+
+        function showControlPanel(tireId) {
+            const dashboardView = document.getElementById('dashboard-view');
+            const controlView = document.getElementById('control-view');
+            const currentTireTitle = document.getElementById('current-tire-title');
+
+            currentTireId = tireId;
+            currentPressure = tirePressures[tireId];
+
+            let tireName = "";
+            switch (tireId) {
+                case 'FL': tireName = "앞왼쪽 타이어"; break;
+                case 'FR': tireName = "앞오른쪽 타이어"; break;
+                case 'RL': tireName = "뒤왼쪽 타이어"; break;
+                case 'RR': tireName = "뒤오른쪽 타이어"; break;
+            }
+            currentTireTitle.textContent = tireName;
+
+            dashboardView.classList.add('hidden');
+            controlView.classList.remove('hidden');
+            updatePressureDisplay();
+        }
+
+        function updatePressureDisplay() {
+            pressureValue.textContent = currentPressure.toFixed(1);
+
+            if (currentTireId) {
+                tirePressures[currentTireId] = currentPressure;
+                saveTirePressures();
+            }
+        }
+
+        async function connectToDevice() {
+            try {
+                log("블루투스 장치 요청 중...");
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+                log("GATT 서버에 연결 중...");
+                bleServer = await bleDevice.gatt.connect();
+
+                log("서비스 가져오는 중... UUID: " + SERVICE_UUID);
+                bleService = await bleServer.getPrimaryService(SERVICE_UUID);
+
+                log("특성(Characteristic) 가져오는 중... UUID: " + CHARACTERISTIC_UUID);
+                bleCharacteristic = await bleService.getCharacteristic(CHARACTERISTIC_UUID);
+
+                log("연결 성공!");
+                isSimulation = false;
+                loadTirePressures();
+                updateConnectionState(true);
+                showDashboard();
+
+            } catch (error) {
+                console.error("Connection failed", error);
+                log("연결 실패: " + error.message);
+            }
+        }
+
+        function onDisconnected(event) {
+            log("장치 연결이 끊어졌습니다.");
+            updateConnectionState(false);
+        }
+
+        function updateConnectionState(isConnected) {
+            if (isConnected) {
+                connectionStatus.textContent = "연결됨";
+                connectionStatus.classList.remove('disconnected');
+                connectionStatus.classList.add('connected');
+                controlPanel.classList.remove('disabled');
+                connectBtn.style.display = 'none';
+                pressureDisplay.classList.remove('hidden');
+                log("장치가 연결되었습니다. 준비 완료.");
+
+                // Start physics engine for pressure simulation even in BLE mode
+                startPhysicsEngine();
+            } else {
+                connectionStatus.textContent = "연결 끊김";
+                connectionStatus.classList.add('disconnected');
+                connectionStatus.classList.remove('connected');
+                controlPanel.classList.add('disabled');
+                connectBtn.style.display = 'block';
+                pressureDisplay.classList.add('hidden');
+
+                if (physicsInterval) {
+                    clearInterval(physicsInterval);
+                    physicsInterval = null;
+                }
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (isSimulation) return;
+            if (!bleCharacteristic) {
+                log("연결되지 않음.");
+                return;
+            }
+            try {
+                const encoder = new TextEncoder();
+                await bleCharacteristic.writeValue(encoder.encode(cmd));
+                console.log("Sent command:", cmd);
+            } catch (error) {
+                console.error("Write failed", error);
+                log("명령 전송 오류.");
+            }
+        }
+
+        function startPhysicsEngine() {
+            if (physicsInterval) clearInterval(physicsInterval);
+
+            physicsInterval = setInterval(() => {
+                const now = Date.now();
+                const deltaTime = 0.1; // seconds
+
+                if (isRelayOn && relayAction) {
+                    if (relayAction === 'inflate') {
+                        currentPressure += 0.15 * deltaTime; // 0.15 PSI/s
+                        if (currentPressure > 100) currentPressure = 100;
+                    } else if (relayAction === 'deflate') {
+                        currentPressure -= 0.15 * deltaTime; // 0.15 PSI/s
+                        if (currentPressure < 0) currentPressure = 0;
+                    }
+                    updatePressureDisplay();
+                    checkSafetyLimits();
+                }
+            }, 100);
+        }
+
+        function checkSafetyLimits() {
+            const inflateDisabled = currentPressure >= 50;
+            const deflateDisabled = currentPressure <= 20;
+
+            if (inflateDisabled) {
+                inflateBtn.classList.add('disabled');
+                inflateBtn.disabled = true;
+                if (relayAction === 'inflate') {
+                    stopControl('inflate');
+                    log("⚠️ 최대 압력(50 PSI) 도달. 주입 중단.");
+                }
+            } else {
+                inflateBtn.classList.remove('disabled');
+                inflateBtn.disabled = false;
+            }
+
+            if (deflateDisabled) {
+                deflateBtn.classList.add('disabled');
+                deflateBtn.disabled = true;
+                if (relayAction === 'deflate') {
+                    stopControl('deflate');
+                    log("⚠️ 최소 압력(20 PSI) 도달. 배출 중단.");
+                }
+            } else {
+                deflateBtn.classList.remove('disabled');
+                deflateBtn.disabled = false;
+            }
+
+            if (currentPressure < 20) {
+                // log("⚠️ 위험: 안전 범위 이하 (20 PSI 미만). 배출 차단됨.");
+            } else if (currentPressure < 25) {
+                log("⚠️ 저압 주의: 실제 차량에서는 주행이 위험할 수 있는 수준입니다.");
+            } else if (currentPressure > 50) {
+                // log("⚠️ 위험: 안전 범위 초과 (50 PSI 이상). 주입 차단됨.");
+            } else if (currentPressure > 45) {
+                log("⚠️ 고압 주의: 실제 차량에서는 타이어 손상 위험이 있을 수 있습니다.");
+            }
+        }
+
+        function startControl(action, immediate = false) {
+            const btn = (action === 'inflate') ? inflateBtn : deflateBtn;
+            if (btn.disabled) {
+                log("안전 범위를 벗어나 제어가 제한되었습니다.");
+                return;
+            }
+
+            // Clear any existing timeout
+            if (controlTimeout) clearTimeout(controlTimeout);
+
+            // 1. Send BLE Command IMMEDIATELY
+            const cmdStart = (action === 'inflate') ? 'I' : 'D';
+            setRelayState(true, cmdStart);
+
+            // 2. Manage RelayAction (Physics/UI update)
+            if (immediate) {
+                relayAction = action;
+            } else {
+                // Delay UI updates by 1 second
+                controlTimeout = setTimeout(() => {
+                    relayAction = action;
+                }, 1000);
+            }
+        }
+
+        function stopControl(action) {
+            // Clear timeout if button released before 1 second
+            if (controlTimeout) {
+                clearTimeout(controlTimeout);
+                controlTimeout = null;
+            }
+
+            // Always send stop command
+            const cmdStop = (action === 'inflate') ? 'i' : 'd';
+            setRelayState(false, cmdStop);
+
+            // Reset relayAction
+            relayAction = null;
+        }
+
+        function setRelayState(state, cmd) {
+            isRelayOn = state;
+            sendCommand(cmd);
+        }
+
+        function setupButtonListeners(btn, action) {
+            const startAction = (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                startControl(action);
+            };
+            const stopAction = (e) => {
+                e.preventDefault();
+                if (btn.classList.contains('active')) {
+                    btn.classList.remove('active');
+                    stopControl(action);
+                }
+            };
+
+            btn.addEventListener('mousedown', startAction);
+            btn.addEventListener('mouseup', stopAction);
+            btn.addEventListener('mouseleave', stopAction);
+            btn.addEventListener('touchstart', startAction);
+            btn.addEventListener('touchend', stopAction);
+            btn.addEventListener('touchcancel', stopAction);
+        }
+
+        // Smart Pressure Table
+        const SMART_PRESSURE_TABLE = {
+            'normal': { 'asphalt': 34, 'wet': 35, 'snow': 32, 'gravel': 31, 'mud': 31 },
+            'rain': { 'asphalt': 35, 'wet': 36, 'snow': 33, 'gravel': 32, 'mud': 32 },
+            'snow': { 'asphalt': 32, 'wet': 33, 'snow': 30, 'gravel': 29, 'mud': 29 },
+            'heat': { 'asphalt': 32.5, 'wet': 33.5, 'snow': 30.5, 'gravel': 29.5, 'mud': 29.5 }
+        };
+
+        // Smart Mode Elements
+        const smartModal = document.getElementById('smart-modal');
+        const closeModalBtn = document.querySelector('.close-modal');
+        const weatherSelect = document.getElementById('weather-select');
+        const roadSelect = document.getElementById('road-select');
+        const recPsiDisplay = document.getElementById('rec-psi');
+        const applySmartBtn = document.getElementById('apply-smart-btn');
+        const smartModeBtn = document.querySelector('.mode-btn[data-mode="smart"]');
+
+        function updateSmartRecommendation() {
+            const weather = weatherSelect.value;
+            const road = roadSelect.value;
+            const recPsi = SMART_PRESSURE_TABLE[weather][road];
+            recPsiDisplay.textContent = recPsi;
+        }
+
+        weatherSelect.addEventListener('change', updateSmartRecommendation);
+        roadSelect.addEventListener('change', updateSmartRecommendation);
+
+        smartModeBtn.addEventListener('click', () => {
+            if (isSimulation) {
+                alert("테스트 모드(시뮬레이션)에서는 스마트 모드를 사용할 수 없습니다.");
+                return;
+            }
+            smartModal.classList.remove('hidden');
+            updateSmartRecommendation();
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            smartModal.classList.add('hidden');
+        });
+
+        // Close modal when clicking outside
+        smartModal.addEventListener('click', (e) => {
+            if (e.target === smartModal) {
+                smartModal.classList.add('hidden');
+            }
+        });
+
+        applySmartBtn.addEventListener('click', () => {
+            if (isSimulation) return;
+
+            const weather = weatherSelect.value;
+            const road = roadSelect.value;
+            const targetPsi = SMART_PRESSURE_TABLE[weather][road];
+
+            // Apply to FL, FR, RL (Skip RR)
+            tirePressures.FL = targetPsi;
+            tirePressures.FR = targetPsi;
+            tirePressures.RL = targetPsi;
+            // RR is exception
+
+            saveTirePressures();
+            updateDashboardUI();
+
+            // Send BLE commands if connected
+            if (bleCharacteristic) {
+                sendCommand(`SET_FL:${targetPsi}`);
+                sendCommand(`SET_FR:${targetPsi}`);
+                sendCommand(`SET_RL:${targetPsi}`);
+            }
+
+            smartModal.classList.add('hidden');
+
+            // Visual feedback on Smart button
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            smartModeBtn.classList.add('active');
+        });
+
+        // Drive Mode Logic
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            if (btn.dataset.mode === 'smart') return; // Handled separately
+
+            btn.addEventListener('click', () => {
+                if (isSimulation) {
+                    alert("테스트 모드(시뮬레이션)에서는 주행 모드를 변경할 수 없습니다.");
+                    return;
+                }
+
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const mode = btn.dataset.mode;
+                let fl, fr, rl;
+
+                if (mode === 'normal') {
+                    fl = 34; fr = 34; rl = 34;
+                } else if (mode === 'sports') {
+                    fl = 36; fr = 36; rl = 35;
+                } else if (mode === 'comfort') {
+                    fl = 32; fr = 32; rl = 32;
+                }
+
+                // Apply to FL, FR, RL (Skip RR)
+                if (fl !== undefined) {
+                    tirePressures.FL = fl;
+                    tirePressures.FR = fr;
+                    tirePressures.RL = rl;
+                    // RR is exception
+
+                    saveTirePressures();
+                    updateDashboardUI();
+
+                    if (bleCharacteristic) {
+                        sendCommand(`SET_FL:${fl}`);
+                        sendCommand(`SET_FR:${fr}`);
+                        sendCommand(`SET_RL:${rl}`);
+                    }
+                }
+            });
+        });
+
+        connectBtn.addEventListener('click', () => {
+            if (!navigator.bluetooth) {
+                alert("이 브라우저는 웹 블루투스를 지원하지 않습니다.\n\n아이폰/아이패드(iOS) 사용자는 'Bluefy' 앱을 설치하여 실행해주세요.");
+                return;
+            }
+            connectToDevice();
+        });
+
+        testModeBtn.addEventListener('click', () => {
+            isSimulation = true;
+            loadTirePressures();
+            updateConnectionState(true); // Simulate connection
+            showDashboard();
+            log("테스트 모드(시뮬레이션) 시작");
+        });
+
+        // Setup Tire Button Listeners
+        const tireBtns = document.querySelectorAll('.tire-btn');
+        tireBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tireId = btn.dataset.tire;
+                showControlPanel(tireId);
+            });
+        });
+
+        const backBtn = document.getElementById('back-to-dashboard');
+        backBtn.addEventListener('click', () => {
+            showDashboard();
+        });
+
+        targetMinusBtn.addEventListener('click', () => {
+            const current = parseInt(targetPsiInput.value);
+            if (current > 0) {
+                targetPsiInput.value = current - 1;
+            }
+        });
+
+        targetPlusBtn.addEventListener('click', () => {
+            const current = parseInt(targetPsiInput.value);
+            if (current < 100) {
+                targetPsiInput.value = current + 1;
+            }
+        });
+
+        autoStartBtn.addEventListener('click', () => {
+            if (!isAutoMode) {
+                isAutoMode = true;
+                autoStartBtn.classList.add('active');
+                autoStartBtn.innerHTML = '<i data-lucide="square"></i> 자동 조절 중지';
+                lucide.createIcons();
+                log("자동 조절 시작...");
+                startAutoControl();
+            } else {
+                stopAutoControl();
+            }
+        });
+
+        function startAutoControl() {
+            if (autoCheckInterval) clearInterval(autoCheckInterval);
+            const targetPsi = parseFloat(targetPsiInput.value);
+
+            if (targetPsi < 20 || targetPsi > 50) {
+                log("⚠️ 안전 범위를 벗어난 목표값입니다. 20~50 PSI 범위 내에서 설정하세요.");
+                isAutoMode = false;
+                autoStartBtn.classList.remove('active');
+                autoStartBtn.innerHTML = '<i data-lucide="bot"></i> 자동 조절 시작';
+                lucide.createIcons();
+                return;
+            }
+
+            controlPanel.classList.add('disabled');
+            const margin = 0.05;
+
+            autoCheckInterval = setInterval(() => {
+                const P_now = currentPressure;
+
+                if (P_now < targetPsi - margin) {
+                    if (P_now >= 50) {
+                        log("⚠️ 50 PSI 이상이므로 주입이 차단됩니다.");
+                        stopAutoControl();
+                        return;
+                    }
+                    if (relayAction !== 'inflate') {
+                        if (relayAction === 'deflate') stopControl('deflate');
+                        log(`주입 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                        startControl('inflate', true);
+                    }
+                } else if (P_now > targetPsi + margin) {
+                    if (P_now <= 20) {
+                        log("⚠️ 20 PSI 이하이므로 배출이 차단됩니다.");
+                        stopAutoControl();
+                        return;
+                    }
+                    if (relayAction !== 'deflate') {
+                        if (relayAction === 'inflate') stopControl('inflate');
+                        log(`배출 중... (현재: ${P_now.toFixed(1)} PSI → 목표: ${targetPsi} PSI)`);
+                        startControl('deflate', true);
+                    }
+                } else {
+                    if (relayAction) stopControl(relayAction);
+                    log(`목표 압력 도달: ${targetPsi} PSI`);
+                    stopAutoControl();
+                }
             }, 150);
         }
 
